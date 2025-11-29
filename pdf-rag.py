@@ -20,6 +20,7 @@ VECTOR_STORE_NAME = "simple-rag"
 PERSIST_DIRECTORY = None
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 300
+RETRIEVAL_K = 5
 
 def ingest_pdf(doc_path: str = DOC_PATH):
     loader = UnstructuredPDFLoader(file_path=doc_path)
@@ -38,7 +39,7 @@ def create_vector_db(chunks):
         persist_directory=PERSIST_DIRECTORY,
     )
 
-def create_retriever(vector_db, llm):
+def create_retriever(vector_db, llm, k=RETRIEVAL_K):
     QUERY_PROMPT = PromptTemplate(
         input_variables=["question"],
         template="""You are an AI language model assistant. Your task is to generate five
@@ -48,9 +49,8 @@ goal is to help the user overcome some of the limitations of the distance-based
 similarity search. Provide these alternative questions separated by newlines.
 Original question: {question}""",
     )
-    return MultiQueryRetriever.from_llm(
-        vector_db.as_retriever(), llm, prompt=QUERY_PROMPT
-    )
+    base_retriever = vector_db.as_retriever(search_kwargs={"k": k})
+    return MultiQueryRetriever.from_llm(base_retriever, llm, prompt=QUERY_PROMPT)
 
 def create_chain(retriever, llm):
     template = """Answer the question based ONLY on the following context:
@@ -83,7 +83,7 @@ def main():
     
     # Create chain
     llm = ChatOllama(model=MODEL_NAME)
-    retriever = create_retriever(vector_db, llm)
+    retriever = create_retriever(vector_db, llm, k=RETRIEVAL_K)
     chain = create_chain(retriever, llm)
     
     # Run questions
@@ -106,6 +106,7 @@ def main():
             "Persist Directory": PERSIST_DIRECTORY or "None (in-memory)",
             "Chunk Size": CHUNK_SIZE,
             "Chunk Overlap": CHUNK_OVERLAP,
+            "Retrieval K": RETRIEVAL_K,
             "Number of Chunks": len(chunks),
             "Indexing Time (s)": round(indexing_time, 2),
         })
