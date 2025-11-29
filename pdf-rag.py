@@ -1,7 +1,7 @@
 import ollama
 import time
+import os
 import pandas as pd
-from datetime import datetime
 
 from langchain_ollama import OllamaEmbeddings
 from langchain_community.document_loaders import UnstructuredPDFLoader
@@ -68,8 +68,9 @@ Question: {question}
 def main():
     questions = [
         "What is Apache Iceberg? Explain in short.",
-        "How does Iceberg ensure that two writers don not overwrite each others ingestion results?",
-        "How to access data that was deleted in a newer snapshot?"
+        "How does Iceberg ensure that two writers do not overwrite each others ingestion results?",
+        "How to access data that was deleted in a newer snapshot?",
+        "What happens if a writer attempts to commit based on an old snapshot?",
     ]
     
     # Indexing
@@ -119,17 +120,17 @@ def main():
     
     report_df = pd.DataFrame(report_data)
     
-    # Save report as single CSV
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"baseline_report_{timestamp}.csv"
-    report_df.to_csv(filename, index=False)
+    # Save report as single CSV with parameters in filename
+    filename = f"chunk{CHUNK_SIZE}_overlap{CHUNK_OVERLAP}_{MODEL_NAME}_{EMBEDDING_MODEL}.csv"
+    filepath = os.path.join("results", filename)
+    report_df.to_csv(filepath, index=False)
     
     # Print summary
     print("\n" + "="*60)
     print("BASELINE REPORT")
     print("="*60)
     print(report_df.to_string(index=False))
-    print(f"\nReport saved to: {filename}")
+    print(f"\nReport saved to: {filepath}")
 
 if __name__ == "__main__":
     main()
