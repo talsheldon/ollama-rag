@@ -1,0 +1,21 @@
+Question,Response,Response Time (s),Accuracy,LLM Model,Embedding Model,Vector Store,Persist Directory,Chunk Size,Chunk Overlap,Retrieval K,Retrieval Strategy,Number of Chunks,Indexing Time (s),Average Response Time (s)
+What is Apache Iceberg? Explain in short.,"Apache Iceberg is a table format that manages large, slow-changing collections of files in a distributed file system or key-value store. It allows for efficient and scalable storage, querying, and analysis of data.",9.67,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,5,basic,175,13.75,13.45
+How does Iceberg ensure that two writers do not overwrite each others ingestion results?,"According to the Iceberg specification, Iceberg ensures that two writers do not overwrite each other's ingestion results through optimistic concurrency control. This is achieved by creating a new metadata file for each update and swapping it with the old one in an atomic operation.
+
+In more detail, when a writer wants to make changes to the table metadata, it creates a new version of the metadata file with the updated values. The writer then asks the system to commit the update, which involves swapping the new metadata file with the old one. However, before this swap happens, other writers may have also made updates and created new versions of their own metadata files.
+
+To prevent overwriting each other's changes, Iceberg uses a mechanism called ""snapshotting"". Each writer maintains its own snapshot of the table, which is essentially a point-in-time copy of the table's state. When a writer makes changes to the table, it creates a new snapshot and updates it with the new values.
+
+The system then allows multiple writers to update their snapshots concurrently, but only once the update has been committed by all writers. This ensures that no writer can overwrite another writer's changes until both have acknowledged the update.
+
+In addition to snapshotting, Iceberg also uses atomic swaps to ensure that the updates are applied in a consistent and reproducible manner. When a writer commits its update, the system performs an atomic swap of the metadata file with the old one, which ensures that either all writers commit their changes or none do.",18.26,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,5,basic,175,13.75,13.45
+How to access data that was deleted in a newer snapshot?,"According to the Iceberg documentation, if you want to access data that was deleted in a newer snapshot, you can use Deletion Vectors (DVs). DVs identify deleted rows within a single referenced data file by position in a bitmap. They are a more efficient representation of deletes at execution time than position delete files.
+
+To access deleted data using DVs:
+
+1. Check if the deletion vector exists for the data file.
+2. If it does, extract the positions of the deleted rows from the bitmap.
+3. Use these positions to locate the original data in the original data file.
+
+Note that writers must ensure there is at most one deletion vector per data file and merge new deletes with existing vectors or position delete files when removing a data file.",14.43,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,5,basic,175,13.75,13.45
+What happens if a writer attempts to commit based on an old snapshot?,"According to the text, if a writer attempts to commit based on an old snapshot, another writer has already created a new version of the table metadata (V+1), so the swap fails. The current writer goes back to step 1 and commits again. This ensures that only the latest version of the table metadata is committed to the metastore.",11.45,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,5,basic,175,13.75,13.45

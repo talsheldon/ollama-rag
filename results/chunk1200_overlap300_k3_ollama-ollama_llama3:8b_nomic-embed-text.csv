@@ -1,0 +1,22 @@
+Question,Response,Response Time (s),Accuracy,LLM Model,Embedding Model,Vector Store,Persist Directory,Chunk Size,Chunk Overlap,Retrieval K,Retrieval Strategy,Number of Chunks,Indexing Time (s),Average Response Time (s)
+What is Apache Iceberg? Explain in short.,"Based on the provided context, Apache Iceberg appears to be an open-source project for managing large, distributed datasets. It provides a format for storing and processing semi-structured data, allowing for efficient storage, retrieval, and processing of complex data sets.",18.44,[To be evaluated],llama3:8b,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,13.48,23.48
+How does Iceberg ensure that two writers do not overwrite each others ingestion results?,"According to the provided context, Iceberg ensures that two writers do not overwrite each other's ingestion results by using a combination of optimistic locking and retry mechanisms.
+
+When a writer creates an update, it commits by swapping the table's metadata file pointer from the base version to the new version. However, if another writer has committed a change based on the same snapshot, the first writer will have to retry its update based on the new current version.
+
+This process ensures that writers create table metadata files optimistically, assuming that the current version will not be changed before they commit. If someone else commits a change, the original writer's changes are effectively rolled back and they can re-apply their updates to the new snapshot.
+
+Additionally, some operations support retry by re-applying metadata changes and committing under well-defined conditions. For example, a change that rewrites files can be applied to a new table snapshot if all of the rewritten files are still in the table.",24.14,[To be evaluated],llama3:8b,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,13.48,23.48
+How to access data that was deleted in a newer snapshot?,"Based on the provided context, it seems that when a file is replaced or deleted from the dataset, its manifest entry fields store the snapshot ID in which the file was deleted and status 2 (deleted). The file may be deleted from the file system when the snapshot in which it was deleted is garbage collected, assuming that older snapshots have also been garbage collected.
+
+This suggests that deleted data can still be accessed through the snapshot metadata. To access data that was deleted in a newer snapshot, you would need to:
+
+1. Identify the relevant snapshot: Determine the snapshot ID of the snapshot where the data was deleted.
+2. Retrieve the manifest list: Get the manifest list for the identified snapshot.
+3. Find the deleted file: Look up the file in the manifest list that has been marked as deleted (status 2).
+4. Access the deleted file's metadata: Use the file's metadata to access its contents, which may be stored in a delete file or deletion vector.
+
+Please note that accessing deleted data might require additional processing and manipulation of the snapshot metadata.",25.06,[To be evaluated],llama3:8b,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,13.48,23.48
+What happens if a writer attempts to commit based on an old snapshot?,"According to the context, if a writer attempts to commit based on an old snapshot, the system will detect this as a write conflict and prevent the commit. The writer's changes are considered optimistic, meaning they assume that no other writes have occurred since the snapshot was taken. However, if another writer has modified the table in the meantime, the system detects the conflict and prevents the original writer from committing their changes.
+
+In such cases, the writer will be forced to retry the commit with an updated snapshot, ensuring that their changes are applied consistently and accurately across all readers. This ensures that the system maintains a consistent view of the data for all users, even in the presence of concurrent updates.",26.27,[To be evaluated],llama3:8b,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,13.48,23.48

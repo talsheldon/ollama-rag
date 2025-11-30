@@ -100,6 +100,8 @@ This generates multiple CSV files comparing:
 
 **Note:** Requires OpenAI API key in `.env` file (see Setup section).
 
+**Note:** Section 5 experiments (5.2 and 5.3) require OpenAI API quota. If experiments fail with quota errors, the results shown are estimated based on typical OpenAI performance characteristics.
+
 ### Section 6: Advanced RAG Strategies
 
 Run section 6 experiments:
@@ -108,8 +110,8 @@ PYTHONPATH=. python experiments/6_runner.py
 ```
 
 This generates multiple CSV files comparing:
-- **Basic Retrieval**: similarity_search(k=5) → direct to LLM
-- **Reranking**: similarity_search(k=10) → rerank by relevance → top 3 to LLM
+- **Basic Retrieval**: MultiQueryRetriever with k=5 → direct to LLM
+- **Reranking**: Basic retriever with k=10 → rerank by relevance → top 3 to LLM
 
 ## Analysis
 
@@ -118,6 +120,7 @@ Open the Jupyter notebooks in the `analysis/` directory to view detailed analysi
 - `analysis/3_baseline_analysis.ipynb` - Baseline results analysis
 - `analysis/4_analysis.ipynb` - Section 4 comparative analysis
 - `analysis/5_analysis.ipynb` - Section 5 local vs cloud comparison
+- `analysis/6_analysis.ipynb` - Section 6 advanced strategies analysis
 
 ## Conclusions
 
@@ -130,8 +133,8 @@ The baseline RAG system was successfully implemented with:
 - **Retrieval k**: 3
 
 **Key Findings:**
-- Average response time: ~12.18 seconds
-- Indexing time: ~13.81 seconds
+- Average response time: **10.49 seconds**
+- Indexing time: **14.12 seconds**
 - Response quality: 2 out of 4 questions fully accurate, 2 partially accurate
 - System demonstrates good understanding of core Apache Iceberg concepts
 
@@ -140,8 +143,8 @@ The baseline RAG system was successfully implemented with:
 #### 4.1: Model Size Impact (8B vs 3B)
 
 **Latency Impact:**
-- Average response time increased by **~112%** (12.18s → 25.84s)
-- Indexing time increased slightly (~3%)
+- Average response time increased by **~124%** (10.49s → 23.48s)
+- Indexing time decreased slightly (14.12s → 13.48s, ~5% decrease)
 - The larger model is significantly slower but provides more detailed responses
 
 **Quality Impact:**
@@ -154,13 +157,14 @@ The baseline RAG system was successfully implemented with:
 #### 4.3: Chunk Size Impact (300 vs 1200)
 
 **Latency Impact:**
-- Average response time **decreased by ~37%** (12.18s → 7.73s)
-- Indexing time remained similar (~2% increase)
+- Average response time **decreased by ~36%** (10.49s → 6.75s)
+- Indexing time remained similar (14.12s → 13.58s, ~4% decrease)
 - Smaller chunks lead to faster response times
 
 **Chunk Count Impact:**
 - Number of chunks increased by **~290%** (175 → 682)
-- More chunks means more embedding operations, but faster retrieval per chunk
+- More chunks means more embedding operations during indexing (one-time cost)
+- Smaller chunks contain fewer tokens, leading to faster LLM processing per chunk
 
 **Quality Impact:**
 - Small chunks sometimes struggle with questions requiring broader context (e.g., Question 2 about writer conflict prevention)
@@ -209,15 +213,15 @@ The baseline RAG system was successfully implemented with:
 - **5.2 - Hybrid**: OpenAI LLM (gpt-4o-mini) + Ollama embeddings (nomic-embed-text)
 - **5.3 - Full Cloud**: OpenAI LLM (gpt-4o-mini) + OpenAI embeddings (text-embedding-3-small)
 
-**Model Selection:** Using `gpt-4o-mini` for fair comparison with llama3.2 8B - both are smaller models designed for efficiency.
+**Model Selection:** Using `gpt-4o-mini` for fair comparison with local models - it's a smaller, efficient model similar in size to llama3.2 (3B) used in baseline.
 
 **Key Findings:**
 
 **Latency Impact:**
 
 *Baseline (Local Ollama):*
-- Average response time: **10.64s**
-- Indexing time: **14.63s**
+- Average response time: **10.49s** (from Section 3 baseline)
+- Indexing time: **14.12s** (from Section 3 baseline)
 - Number of chunks: 175
 
 *Hybrid (OpenAI LLM + Local Embeddings):*
@@ -236,9 +240,11 @@ The baseline RAG system was successfully implemented with:
 
 | Configuration | Avg Response Time | vs Baseline | Indexing Time | vs Baseline |
 |---------------|-------------------|-------------|---------------|-------------|
-| Baseline (Local) | 10.64s | - | 14.63s | - |
-| Hybrid (OpenAI LLM) | ~2-5s | **-50 to -80%** | ~14-15s | ~0% |
-| Full Cloud | ~2-5s | **-50 to -80%** | ~20-30s | **+35 to +105%** |
+| Baseline (Local) | 10.49s | - | 14.12s | - |
+| Hybrid (OpenAI LLM) | ~2-5s* | **-50 to -80%** | ~14-15s* | ~0% |
+| Full Cloud | ~2-5s* | **-50 to -80%** | ~20-30s* | **+35 to +105%** |
+
+*Note: Section 5 experiments require OpenAI API key with sufficient quota. Experiments failed due to quota limits, so values are estimated based on typical OpenAI performance.*
 
 **Quality Impact:**
 - OpenAI gpt-4o-mini provides similar or better response quality compared to local Ollama 3B
@@ -296,15 +302,15 @@ The baseline RAG system was successfully implemented with:
 ### Section 6: Basic Retrieval vs Reranking
 
 **Experiments:**
-- **Basic Retrieval**: similarity_search(k=5) → direct to LLM
-- **Reranking**: similarity_search(k=10) → rerank by relevance → top 3 to LLM
+- **Basic Retrieval**: MultiQueryRetriever with k=5 → direct to LLM
+- **Reranking**: Basic retriever with k=10 → rerank by relevance → top 3 to LLM
 
 **Key Findings:**
 
 *Performance Results:*
-- **Basic Retrieval**: Average response time **15.45s**, Indexing time **13.69s**
-- **Reranking**: Average response time **5.76s**, Indexing time **11.72s**
-- **Latency Improvement**: Reranking is **~63% faster** than basic retrieval
+- **Basic Retrieval (k=5)**: Average response time **13.45s**, Indexing time **13.75s**
+- **Reranking (k=10→3)**: Average response time **5.70s**, Indexing time **11.85s**
+- **Latency Improvement**: Reranking is **~58% faster** than basic retrieval
 
 *Reranking Strategy:*
 - Retrieves k=10 documents initially
@@ -313,16 +319,17 @@ The baseline RAG system was successfully implemented with:
 - Passes only top 3 to final LLM for answer generation
 
 *Benefits:*
-- **Faster responses**: Single reranking call + smaller context (3 docs vs 5) = faster overall
+- **Faster responses**: Despite additional reranking step, overall faster due to smaller final context (3 docs vs 5 docs) being processed by LLM
 - Reduces "Missed Top Rank" failures (relevant docs not in top k)
 - Reduces "Not in Context" failures (better document selection)
 - More accurate retrieval for complex queries
 - Addresses RAG anti-patterns from theory
 
 *Tradeoffs:*
-- Additional LLM call for reranking (but single call, not per-document)
+- Additional LLM call for reranking (but single optimized call, not per-document)
 - More complex pipeline
-- Slightly faster indexing (11.72s vs 13.69s) due to different vector store setup
+- Typically reranking adds latency, but in this case the speed gain from smaller context (3 vs 5 docs) outweighs the reranking overhead
+- Slightly faster indexing (11.85s vs 13.75s) due to different vector store setup
 
 **When to Use Each Strategy:**
 

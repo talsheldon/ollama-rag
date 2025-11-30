@@ -1,0 +1,17 @@
+Question,Response,Response Time (s),Accuracy,LLM Model,Embedding Model,Vector Store,Persist Directory,Chunk Size,Chunk Overlap,Retrieval K,Retrieval Strategy,Number of Chunks,Indexing Time (s),Average Response Time (s)
+What is Apache Iceberg? Explain in short.,"Apache Iceberg is an open-source columnar storage format for big data. It's designed to provide fast and efficient scanning of large datasets, with features like serializable isolation, speed, and scalability. The key benefit is that it allows clients to handle job planning, reducing the load on a central metadata store.",4.06,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,10,reranking,175,11.85,5.7
+How does Iceberg ensure that two writers do not overwrite each others ingestion results?,"Iceberg ensures that two writers do not overwrite each other's ingestion results by using a snapshot-based approach.
+
+When a writer is writing to the table, it checks if a newer snapshot has been published since its last write. If no newer snapshot exists, or if a new snapshot does exist but the current data is compatible with the previous snapshot (according to the Table Spec), the writer can proceed with writing to the table.
+
+However, if a new snapshot has been published that contains incompatible data or changes to metadata (such as updates to the table schema), the write operation will fail and cannot overwrite the existing data. In this case, the failed commit will be retried when a newer version of the table is created, which can be done by updating the table metadata to reflect the new snapshot.
+
+This approach ensures that two writers do not overwrite each other's ingestion results by using a consistent view of the table state across all writers, and by allowing for retrying of failed writes when a newer version of the table is available.",7.6,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,10,reranking,175,11.85,5.7
+How to access data that was deleted in a newer snapshot?,"To access data that was deleted in a newer snapshot, you can use the `file_sequence_number` field. This field represents the sequence number of the snapshot that added the file and must remain unchanged upon assigning at commit.
+
+However, this field cannot be used for pruning delete files as the data within the file may have an older data sequence number. In such cases, the entry status (1 for added, 0 for existing or deleted) must include both sequence numbers explicitly.
+
+Instead, you should look up the snapshot ID and timestamp in the `snapshot_references` map and check if the file was present in that snapshot. If it was not present, then the data is deleted. 
+
+Keep in mind that even though the `file_sequence_number` field can't be used for pruning delete files due to potential inconsistencies in the data within a file (old data sequence number), you should still use the `snapshot_references` map as described above to determine if a file is present or absent from a specific snapshot.",7.98,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,10,reranking,175,11.85,5.7
+What happens if a writer attempts to commit based on an old snapshot?,"If a writer attempts to commit based on an old snapshot, they must retry the update based on the new current version.",3.14,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,10,reranking,175,11.85,5.7
