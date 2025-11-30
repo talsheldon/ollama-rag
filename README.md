@@ -169,27 +169,31 @@ The baseline RAG system was successfully implemented with:
 
 #### 4.3: Chunk Size Impact (300 vs 1200)
 
+**Configuration:**
+- **Baseline**: chunk_size=1200, chunk_overlap=300
+- **Experiment**: chunk_size=300, chunk_overlap=60
+
 **Latency Impact:**
-- Average response time **decreased by ~40%** (11.32s → 6.75s)
-- Indexing time remained similar (13.7s → 13.58s, ~1% decrease)
-- Smaller chunks lead to faster response times
+- Average response time **decreased by ~40%** (11.32s baseline → 6.75s with 300 chunks)
+- Indexing time remained similar (13.7s baseline → 13.58s with 300 chunks, ~1% decrease)
+- **Smaller chunks (300)** lead to faster response times compared to baseline (1200)
 
 **Chunk Count Impact:**
-- Number of chunks increased by **~290%** (175 → 682)
+- Number of chunks increased by **~290%** (175 baseline → 682 with 300 chunks)
 - More chunks means more embedding operations during indexing (one-time cost)
-- Smaller chunks contain fewer tokens, leading to faster LLM processing per chunk
+- **Smaller chunks (300)** contain fewer tokens, leading to faster LLM processing per chunk
 
 **Quality Impact:**
-- Response quality: **2 good, 1 partial, 1 poor**
+- Response quality with **300 chunks**: **2 good, 1 partial, 1 poor**
   - Q1 (What is Apache Iceberg?): **Partial**
   - Q2 (Two writers conflict prevention): **Poor**
   - Q3 (Access deleted data): **Good**
   - Q4 (Old snapshot commit): **Good**
-- Small chunks struggle significantly with questions requiring broader context
-- Context fragmentation leads to incomplete or incorrect answers for complex questions
-- For simple questions, small chunks perform well and faster
+- **Small chunks (300)** struggle significantly with questions requiring broader context
+- Context fragmentation with 300 chunks leads to incomplete or incorrect answers for complex questions
+- For simple questions, **300 chunks** perform well and faster than 1200 chunks
 
-**Trade-off:** Smaller chunks provide faster responses but may lose context for complex questions. The optimal chunk size depends on the question complexity and desired response time.
+**Trade-off:** **Smaller chunks (300)** provide faster responses but may lose context for complex questions compared to **larger chunks (1200)**. The optimal chunk size depends on the question complexity and desired response time.
 
 ### What Breaks When Changing One Decision?
 
