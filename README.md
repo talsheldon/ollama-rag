@@ -1,6 +1,6 @@
 # Ollama RAG Experiment
 
-This project implements and evaluates a RAG (Retrieval Augmented Generation) system using Ollama and LangChain, following the assignment specifications in `ollama-rag-installation.pdf`.
+This project implements and evaluates a RAG (Retrieval Augmented Generation) system using Ollama and LangChain, following the assignment specifications.
 
 ## Project Structure
 
@@ -14,8 +14,7 @@ ollama-rag/
 │   ├── __init__.py
 │   ├── rag_config.py            # RAGConfig dataclass for configuration
 │   ├── rag_runner.py            # RAGRunner class - main pipeline logic
-│   ├── questions.py             # Shared questions for experiments
-│   └── pdf-rag.py               # Legacy file (can be removed)
+│   └── questions.py             # Shared questions for experiments
 │
 ├── experiments/                 # Experiment runner scripts
 │   ├── 3_baseline_report.py     # Section 3: Baseline experiment
@@ -68,7 +67,7 @@ ollama-rag/
 
 Run the baseline experiment:
 ```bash
-python experiments/3_baseline_report.py
+python -m experiments.3_baseline_report
 ```
 
 This generates: `results/chunk1200_overlap300_k3_llama3.2_nomic-embed-text.csv`
@@ -77,7 +76,7 @@ This generates: `results/chunk1200_overlap300_k3_llama3.2_nomic-embed-text.csv`
 
 Run section 4 experiments:
 ```bash
-python experiments/4_runner.py
+python -m experiments.4_runner
 ```
 
 This generates multiple CSV files comparing:
@@ -88,7 +87,7 @@ This generates multiple CSV files comparing:
 
 Run section 5 experiments:
 ```bash
-PYTHONPATH=. python experiments/5_runner.py
+python -m experiments.5_runner
 ```
 
 This generates multiple CSV files comparing:
@@ -106,7 +105,7 @@ This generates multiple CSV files comparing:
 
 Run section 6 experiments:
 ```bash
-PYTHONPATH=. python experiments/6_runner.py
+python -m experiments.6_runner
 ```
 
 This generates multiple CSV files comparing:
