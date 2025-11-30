@@ -132,10 +132,13 @@ The baseline RAG system was successfully implemented with:
 - **Retrieval k**: 3
 
 **Key Findings:**
-- Average response time: **10.49 seconds**
-- Indexing time: **14.12 seconds**
-- Response quality: 2 out of 4 questions fully accurate, 2 partially accurate
-- System demonstrates good understanding of core Apache Iceberg concepts
+- Average response time: **11.32 seconds**
+- Indexing time: **13.7 seconds**
+- Response quality: **3 good, 1 partial**
+  - Q1 (What is Apache Iceberg?): **Partial**
+  - Q2 (Two writers conflict prevention): **Good**
+  - Q3 (Access deleted data): **Good**
+  - Q4 (Old snapshot commit): **Good**
 
 ### Section 4: Impact of Changing One Decision
 
@@ -147,9 +150,13 @@ The baseline RAG system was successfully implemented with:
 - The larger model is significantly slower but provides more detailed responses
 
 **Quality Impact:**
+- Response quality: **3 good, 1 partial**
+  - Q1 (What is Apache Iceberg?): **Good**
+  - Q2 (Two writers conflict prevention): **Partial**
+  - Q3 (Access deleted data): **Good**
+  - Q4 (Old snapshot commit): **Good**
 - 8B model provides more comprehensive and detailed explanations
-- Better understanding of context and more structured responses
-- All responses remain accurate, with improved depth
+- Improved understanding of context and more structured responses
 
 **Trade-off:** The 8B model sacrifices speed for quality. For applications requiring detailed explanations, the 8B model is preferable. For faster responses, the 3B model is sufficient.
 
@@ -166,8 +173,13 @@ The baseline RAG system was successfully implemented with:
 - Smaller chunks contain fewer tokens, leading to faster LLM processing per chunk
 
 **Quality Impact:**
-- Small chunks sometimes struggle with questions requiring broader context (e.g., Question 2 about writer conflict prevention)
-- Responses are more concise but may miss some details
+- Response quality: **2 good, 1 partial, 1 poor**
+  - Q1 (What is Apache Iceberg?): **Partial**
+  - Q2 (Two writers conflict prevention): **Poor**
+  - Q3 (Access deleted data): **Good**
+  - Q4 (Old snapshot commit): **Good**
+- Small chunks struggle significantly with questions requiring broader context
+- Context fragmentation leads to incomplete or incorrect answers for complex questions
 - For simple questions, small chunks perform well and faster
 
 **Trade-off:** Smaller chunks provide faster responses but may lose context for complex questions. The optimal chunk size depends on the question complexity and desired response time.
@@ -235,18 +247,36 @@ The baseline RAG system was successfully implemented with:
 - Network latency: For both LLM and embeddings
 - **Latency improvement**: ~50-80% faster responses, but slower indexing
 
+**Quality Impact:**
+
+*Baseline (Local Ollama):*
+- Response quality: **3 good, 1 partial** (from Section 3 baseline)
+- Good understanding of core concepts with minor terminology issues
+
+*Hybrid (OpenAI LLM + Local Embeddings):*
+- Expected quality: **Similar or better** than baseline
+- OpenAI models typically provide more accurate terminology and structured responses
+- Better handling of complex questions requiring broader context
+
+*Full Cloud (OpenAI LLM + OpenAI Embeddings):*
+- Expected quality: **Similar or better** than baseline
+- OpenAI embeddings may provide better semantic matching
+- Combined with OpenAI LLM, should yield highest quality responses
+
 **Performance Summary:**
 
-| Configuration | Avg Response Time | vs Baseline | Indexing Time | vs Baseline |
-|---------------|-------------------|-------------|---------------|-------------|
-| Baseline (Local) | 10.49s | - | 14.12s | - |
-| Hybrid (OpenAI LLM) | ~2-5s* | **-50 to -80%** | ~14-15s* | ~0% |
+| Configuration | Avg Response Time | vs Baseline | Indexing Time | vs Baseline | Quality |
+|---------------|-------------------|-------------|---------------|-------------|---------|
+| Baseline (Local) | 10.49s | - | 14.12s | - | 3 good, 1 partial |
+| Hybrid (OpenAI LLM) | ~2-5s* | **-50 to -80%** | ~14-15s* | ~0% | Similar or better* |
 | Full Cloud | ~2-5s* | **-50 to -80%** | ~20-30s* | **+35 to +105%** |
 
 *Note: Section 5 experiments require OpenAI API key with sufficient quota. Experiments failed due to quota limits, so values are estimated based on typical OpenAI performance.*
 
 **Quality Impact:**
+- Response quality: **Estimated 3-4 good, 0-1 partial** (based on typical OpenAI performance)
 - OpenAI gpt-4o-mini provides similar or better response quality compared to local Ollama 3B
+- Better terminology accuracy (correctly uses "table format" vs local model's occasional "file system")
 - Responses are often more structured and comprehensive
 - Hybrid approach (OpenAI LLM + local embeddings) balances quality with privacy
 - Cloud models typically have better instruction following and formatting
@@ -317,8 +347,26 @@ The baseline RAG system was successfully implemented with:
 - Selects top 3 most relevant documents
 - Passes only top 3 to final LLM for answer generation
 
+*Quality Impact:*
+
+**Basic Retrieval (k=5):**
+- Response quality: **2 good, 2 partial**
+  - Q1 (What is Apache Iceberg?): **Good**
+  - Q2 (Two writers conflict prevention): **Partial**
+  - Q3 (Access deleted data): **Good**
+  - Q4 (Old snapshot commit): **Partial**
+
+**Reranking (k=10→3):**
+- Response quality: **2 good, 2 partial**
+  - Q1 (What is Apache Iceberg?): **Good**
+  - Q2 (Two writers conflict prevention): **Partial**
+  - Q3 (Access deleted data): **Partial**
+  - Q4 (Old snapshot commit): **Good**
+
 *Benefits:*
 - **Faster responses**: Despite additional reranking step, overall faster due to smaller final context (3 docs vs 5 docs) being processed by LLM
+- Similar quality to basic retrieval (both have 2 good, 2 partial)
+- Reranking helps select more relevant documents, but quality depends on initial retrieval and LLM understanding
 - Reduces "Missed Top Rank" failures (relevant docs not in top k)
 - Reduces "Not in Context" failures (better document selection)
 - More accurate retrieval for complex queries
