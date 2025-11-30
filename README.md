@@ -28,6 +28,13 @@ ollama-rag/
 │   ├── 5_analysis.ipynb         # Section 5 local vs cloud analysis
 │   └── 6_analysis.ipynb         # Section 6 advanced strategies analysis
 │
+├── tests/                       # Unit tests
+│   ├── __init__.py
+│   ├── conftest.py              # Pytest fixtures and configuration
+│   ├── test_rag_config.py       # Tests for RAGConfig
+│   ├── test_rag_runner.py       # Tests for RAGRunner
+│   └── README.md                # Test documentation
+│
 ├── data/                        # Input data
 │   └── iceberg-specs.pdf       # Apache Iceberg specification document
 │
