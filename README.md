@@ -95,7 +95,7 @@ This generates multiple CSV files comparing:
 - **5.2**: Hybrid - OpenAI LLM (gpt-4o-mini) + Local embeddings
 - **5.3**: Full Cloud - OpenAI LLM (gpt-4o-mini) + OpenAI embeddings (text-embedding-3-small)
 
-**Note:** Using `gpt-4o-mini` for fair comparison with llama3.2 8B model size.
+**Note:** Using `gpt-4o-mini` for fair comparison with llama3:8b (8B parameters) model size.
 
 **Note:** Requires OpenAI API key in `.env` file (see Setup section).
 
@@ -145,8 +145,8 @@ The baseline RAG system was successfully implemented with:
 #### 4.1: Model Size Impact (8B vs 3B)
 
 **Latency Impact:**
-- Average response time increased by **~124%** (10.49s → 23.48s)
-- Indexing time decreased slightly (14.12s → 13.48s, ~5% decrease)
+- Average response time increased by **~107%** (11.32s → 23.48s)
+- Indexing time decreased slightly (13.7s → 13.48s, ~2% decrease)
 - The larger model is significantly slower but provides more detailed responses
 
 **Quality Impact:**
@@ -163,8 +163,8 @@ The baseline RAG system was successfully implemented with:
 #### 4.3: Chunk Size Impact (300 vs 1200)
 
 **Latency Impact:**
-- Average response time **decreased by ~36%** (10.49s → 6.75s)
-- Indexing time remained similar (14.12s → 13.58s, ~4% decrease)
+- Average response time **decreased by ~40%** (11.32s → 6.75s)
+- Indexing time remained similar (13.7s → 13.58s, ~1% decrease)
 - Smaller chunks lead to faster response times
 
 **Chunk Count Impact:**
@@ -197,26 +197,6 @@ The baseline RAG system was successfully implemented with:
 3. **For balanced performance:** Use baseline configuration (3B model, chunk_size=1200)
 4. **Consider hybrid approach:** Use smaller chunks for simple queries, larger chunks for complex queries
 
-### Answers to Assignment Questions
-
-**From ollama-rag-installation.pdf:**
-
-1. **What is the recommended embedding model?** 
-   - `nomic-embed-text` as recommended in the video tutorial. This model provides good quality embeddings for the RAG pipeline.
-
-2. **What port does Ollama server run on?**
-   - Default port: `11434` (localhost:11434)
-
-3. **What happens when you change the model size?**
-   - Larger models (8B) provide better quality responses but significantly slower latency (~2x). The trade-off is quality vs speed.
-
-4. **What happens when you change chunk size?**
-   - Smaller chunks (300) provide faster responses (~37% faster) but may lose context for complex questions. Larger chunks provide better context but slower responses.
-
-5. **What breaks when changing one decision?**
-   - Model size: Latency increases significantly
-   - Chunk size: Context fragmentation for complex questions, but faster for simple ones
-
 ### Section 5: Local Ollama vs Cloud OpenAI
 
 **Experiments:**
@@ -224,15 +204,15 @@ The baseline RAG system was successfully implemented with:
 - **5.2 - Hybrid**: OpenAI LLM (gpt-4o-mini) + Ollama embeddings (nomic-embed-text)
 - **5.3 - Full Cloud**: OpenAI LLM (gpt-4o-mini) + OpenAI embeddings (text-embedding-3-small)
 
-**Model Selection:** Using `gpt-4o-mini` for fair comparison with local models - it's a smaller, efficient model similar in size to llama3.2 (3B) used in baseline.
+**Model Selection:** Using `gpt-4o-mini` for fair comparison with the 8B local model (llama3:8b) tested in Section 4.1. This provides an apples-to-apples comparison between local 8B and cloud-based models of similar capability.
 
 **Key Findings:**
 
 **Latency Impact:**
 
 *Baseline (Local Ollama):*
-- Average response time: **10.49s** (from Section 3 baseline)
-- Indexing time: **14.12s** (from Section 3 baseline)
+- Average response time: **11.32s** (from Section 3 baseline)
+- Indexing time: **13.7s** (from Section 3 baseline)
 - Number of chunks: 175
 
 *Hybrid (OpenAI LLM + Local Embeddings):*
@@ -267,19 +247,11 @@ The baseline RAG system was successfully implemented with:
 
 | Configuration | Avg Response Time | vs Baseline | Indexing Time | vs Baseline | Quality |
 |---------------|-------------------|-------------|---------------|-------------|---------|
-| Baseline (Local) | 10.49s | - | 14.12s | - | 3 good, 1 partial |
+| Baseline (Local) | 11.32s | - | 13.7s | - | 3 good, 1 partial |
 | Hybrid (OpenAI LLM) | ~2-5s* | **-50 to -80%** | ~14-15s* | ~0% | Similar or better* |
-| Full Cloud | ~2-5s* | **-50 to -80%** | ~20-30s* | **+35 to +105%** |
+| Full Cloud | ~2-5s* | **-50 to -80%** | ~20-30s* | **+35 to +105%** | Similar or better* |
 
 *Note: Section 5 experiments require OpenAI API key with sufficient quota. Experiments failed due to quota limits, so values are estimated based on typical OpenAI performance.*
-
-**Quality Impact:**
-- Response quality: **Estimated 3-4 good, 0-1 partial** (based on typical OpenAI performance)
-- OpenAI gpt-4o-mini provides similar or better response quality compared to local Ollama 3B
-- Better terminology accuracy (correctly uses "table format" vs local model's occasional "file system")
-- Responses are often more structured and comprehensive
-- Hybrid approach (OpenAI LLM + local embeddings) balances quality with privacy
-- Cloud models typically have better instruction following and formatting
 
 **Tradeoffs:**
 
@@ -363,14 +335,26 @@ The baseline RAG system was successfully implemented with:
   - Q3 (Access deleted data): **Partial**
   - Q4 (Old snapshot commit): **Good**
 
+*RAG Anti-patterns Analysis:*
+
+**Missed Top Rank** (relevant document exists but not in top-k):
+- **Baseline (Section 3, k=3) - Q2**: Encountered "Missed Top Rank" - response states "The text doesn't explicitly explain how Iceberg ensures that two writers do not overwrite each other's ingestion results." The relevant information exists in the document but wasn't in the top-3 retrieved chunks.
+- **Section 6 Basic (k=5) - Q2**: No "Missed Top Rank" - k=5 successfully retrieved relevant chunks about optimistic concurrency control.
+- **Section 6 Reranking (k=10→3) - Q3**: Potential "Missed Top Rank" - response mentions `file_sequence_number` but misses the key "deletion vectors" concept, suggesting the deletion vector information may not have been in the top 3 after reranking.
+
+**Not in Context** (answer doesn't use retrieved context properly):
+- **Baseline (Section 3) - Q2**: Encountered "Not in Context" - the LLM correctly identified that the retrieved context didn't contain the needed information, resulting in a partial answer.
+- **Section 6**: No clear "Not in Context" patterns detected - both strategies provided complete answers using the retrieved context.
+
+**Summary**: Reranking with k=10→3 helped reduce "Missed Top Rank" for Q2 (compared to baseline k=3), but may have introduced a new "Missed Top Rank" for Q3 by selecting top 3 that didn't include deletion vector details. The increased initial retrieval (k=10) before reranking helps capture more relevant documents.
+
 *Benefits:*
 - **Faster responses**: Despite additional reranking step, overall faster due to smaller final context (3 docs vs 5 docs) being processed by LLM
 - Similar quality to basic retrieval (both have 2 good, 2 partial)
 - Reranking helps select more relevant documents, but quality depends on initial retrieval and LLM understanding
-- Reduces "Missed Top Rank" failures (relevant docs not in top k)
+- Reduces "Missed Top Rank" failures for some queries (e.g., Q2 improved from baseline)
 - Reduces "Not in Context" failures (better document selection)
 - More accurate retrieval for complex queries
-- Addresses RAG anti-patterns from theory
 
 *Tradeoffs:*
 - Additional LLM call for reranking (but single optimized call, not per-document)
@@ -401,3 +385,58 @@ OPENAI_API_KEY=your-openai-api-key-here
 ```
 
 This is required for section 5 experiments using OpenAI models.
+
+## Section 7: Implementation Notes
+
+### 7.1: Code Structure and Assignment Answers
+
+The implementation follows a modular design with clear separation of concerns:
+- **`rag/rag_config.py`**: Centralized configuration using dataclasses
+- **`rag/rag_runner.py`**: Core RAG pipeline orchestration
+- **`rag/questions.py`**: Shared question definitions
+- **`experiments/`**: Experiment-specific runner scripts
+- **`analysis/`**: Jupyter notebooks for result analysis
+
+This structure enables easy experimentation with different configurations while maintaining code reusability.
+
+**Answers to Assignment Questions (from ollama-rag-installation.pdf):**
+
+1. **What is the recommended embedding model?** 
+   - `nomic-embed-text` as recommended in the video tutorial. This model provides good quality embeddings for the RAG pipeline.
+
+2. **What port does Ollama server run on?**
+   - Default port: `11434` (localhost:11434)
+
+3. **What happens when you change the model size?**
+   - Larger models (8B) provide better quality responses but significantly slower latency (~2x). The trade-off is quality vs speed.
+
+4. **What happens when you change chunk size?**
+   - Smaller chunks (300) provide faster responses (~40% faster) but may lose context for complex questions. Larger chunks provide better context but slower responses.
+
+5. **What breaks when changing one decision?**
+   - Model size: Latency increases significantly
+   - Chunk size: Context fragmentation for complex questions, but faster for simple ones
+
+6. **Which flags are in the ollama create in demo?**
+   - The demo used a modelfile (not command-line flags as far as I remember) that contained:
+     - Model name
+     - Base prompt
+     - Temperature setting
+
+### 7.2: Video Tutorial vs Implementation
+
+The video tutorial provided basic guidance on using Ollama with LangChain, but the actual implementation required significant additional work:
+
+- **Only CLI command from video**: `ollama pull llama3.2` (and similar for other models)
+- **All other code**: Written from scratch (with the help of AI) based on assignment requirements
+- **Video code limitations**: The tutorial code was extremely basic and only demonstrated simple RAG concepts
+- **Production readiness**: Extensive work was needed to make the code work reliably for all experiment cases, including:
+  - Proper error handling
+  - Configurable retrieval strategies (basic vs reranking)
+  - Support for multiple LLM and embedding providers
+  - Robust CSV reporting with all required metrics
+  - Much more complicated data file
+  - Handling edge cases (empty retrievals, JSON parsing failures, etc.)
+  - Modular design for easy experimentation
+
+The final implementation is significantly more robust and feature-complete than the basic tutorial example.
