@@ -4,6 +4,7 @@ pdfplumber
 langchain
 langchain-core
 langchain-ollama
+langchain-openai
 langchain-community
 langchain_text_splitters
 unstructured
@@ -13,3 +14,4 @@ pikepdf
 sentence-transformers
 elevenlabs
 pandas
+python-dotenv

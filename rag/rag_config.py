@@ -19,11 +19,15 @@ class RAGConfig:
         persist_directory: Directory to persist vector store, None for in-memory (default: None)
     """
     
-    # Model settings (currently local Ollama only, can be extended for cloud)
+    # Model settings
     model_name: str = "llama3.2"
+    llm_provider: str = "ollama"  # "ollama" or "openai"
+    openai_model: str = "gpt-4o-mini"  # Smaller model for fair comparison with llama3.2 8B
     
-    # Embedding settings (currently local Ollama only, can be extended for cloud)
+    # Embedding settings
     embedding_model: str = "nomic-embed-text"
+    embedding_provider: str = "ollama"  # "ollama" or "openai"
+    openai_embedding_model: str = "text-embedding-3-small"
     
     # Document and chunking settings
     doc_path: str = "data/iceberg-specs.pdf"

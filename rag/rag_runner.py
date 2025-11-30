@@ -7,6 +7,7 @@ from typing import List, Dict, Any
 
 import pandas as pd
 from langchain_ollama import OllamaEmbeddings, ChatOllama
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
@@ -32,34 +33,36 @@ class RAGRunner:
             config: RAGConfig instance with all pipeline parameters
         """
         self.config: RAGConfig = config
-        self.llm: ChatOllama = self._create_llm()
-        self.embeddings: OllamaEmbeddings = self._create_embeddings()
+        self.llm = self._create_llm()
+        self.embeddings = self._create_embeddings()
     
-    def _create_llm(self) -> ChatOllama:
+    def _create_llm(self):
         """Create LLM instance based on config.
         
-        Currently supports local Ollama only. To add cloud support:
-        - Add model_type and model_provider to RAGConfig
-        - Add conditional logic here for cloud providers (OpenAI, Anthropic, etc.)
+        Supports local Ollama or cloud OpenAI.
         
         Returns:
-            ChatOllama instance configured with the model name
+            LLM instance (ChatOllama or ChatOpenAI)
         """
-        return ChatOllama(model=self.config.model_name)
+        if self.config.llm_provider == "openai":
+            return ChatOpenAI(model=self.config.openai_model)
+        else:
+            return ChatOllama(model=self.config.model_name)
     
-    def _create_embeddings(self) -> OllamaEmbeddings:
+    def _create_embeddings(self):
         """Create embeddings instance based on config.
         
-        Currently supports local Ollama only. To add cloud support:
-        - Add embedding_type and embedding_provider to RAGConfig
-        - Add conditional logic here for cloud providers (OpenAI, etc.)
+        Supports local Ollama or cloud OpenAI.
         
         Returns:
-            OllamaEmbeddings instance configured with the embedding model
+            Embeddings instance (OllamaEmbeddings or OpenAIEmbeddings)
         """
-        # Pull the embedding model if not already available
-        ollama.pull(self.config.embedding_model)
-        return OllamaEmbeddings(model=self.config.embedding_model)
+        if self.config.embedding_provider == "openai":
+            return OpenAIEmbeddings(model=self.config.openai_embedding_model)
+        else:
+            # Pull the embedding model if not already available
+            ollama.pull(self.config.embedding_model)
+            return OllamaEmbeddings(model=self.config.embedding_model)
     
     def ingest(self) -> List[Any]:
         """Load PDF documents from the configured path.
@@ -210,7 +213,10 @@ Question: {question}
         report_df = pd.DataFrame(report_data)
         
         # Save report as single CSV with parameters in filename
-        filename = f"chunk{self.config.chunk_size}_overlap{self.config.chunk_overlap}_k{self.config.retrieval_k}_{self.config.model_name}_{self.config.embedding_model}.csv"
+        llm_model = self.config.model_name if self.config.llm_provider == "ollama" else self.config.openai_model
+        embedding_model = self.config.embedding_model if self.config.embedding_provider == "ollama" else self.config.openai_embedding_model
+        provider_tag = f"{self.config.llm_provider}-{self.config.embedding_provider}"
+        filename = f"chunk{self.config.chunk_size}_overlap{self.config.chunk_overlap}_k{self.config.retrieval_k}_{provider_tag}_{llm_model}_{embedding_model}.csv"
         filepath = os.path.join("results", filename)
         report_df.to_csv(filepath, index=False)
         
