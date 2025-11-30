@@ -151,12 +151,10 @@ Original question: {question}""",
             LangChain chain that combines retrieval and generation
         """
         if self.config.retrieval_strategy == "reranking":
-            def rerank_and_answer(inputs: Dict[str, Any]) -> str:
-                question = inputs["question"]
+            def rerank_and_answer(question: str) -> str:
                 
                 # Step 1: Retrieve documents from vector store
-                # get_relevant_documents() is the standard LangChain retriever method
-                docs = retriever.get_relevant_documents(question)
+                docs = retriever.invoke(question)
                 if not docs:
                     return "No relevant documents found."
                 
@@ -181,13 +179,19 @@ Original question: {question}""",
                     match = re.search(r'\[[\d\s,]+\]', result)
                     top_indices = json.loads(match.group()) if match else list(range(min(self.config.rerank_k, len(docs))))
                 
+                # Ensure indices are integers and valid
+                top_indices = [int(i) for i in top_indices if isinstance(i, (int, str)) and str(i).isdigit()]
+                top_indices = [i for i in top_indices if 0 <= i < len(docs)][:self.config.rerank_k]
+                if not top_indices:
+                    top_indices = list(range(min(self.config.rerank_k, len(docs))))
+                
                 # Step 4: Get top documents and generate answer
-                top_docs = [docs[i] for i in top_indices if 0 <= i < len(docs)][:self.config.rerank_k] or docs[:self.config.rerank_k]
+                top_docs = [docs[i] for i in top_indices]
                 context = "\n\n".join([doc.page_content for doc in top_docs])
                 answer_prompt = ChatPromptTemplate.from_template("Answer based ONLY on:\n{context}\n\nQ: {question}")
                 return (answer_prompt | self.llm | StrOutputParser()).invoke({"context": context, "question": question})
             
-            return {"question": RunnablePassthrough()} | rerank_and_answer
+            return RunnablePassthrough() | rerank_and_answer
         else:
             # Basic: standard chain
             template = """Answer the question based ONLY on the following context:
