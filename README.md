@@ -20,12 +20,14 @@ ollama-rag/
 ├── experiments/                 # Experiment runner scripts
 │   ├── 3_baseline_report.py     # Section 3: Baseline experiment
 │   ├── 4_runner.py              # Section 4: Changing one decision experiments
-│   └── 5_runner.py              # Section 5: Local vs Cloud comparison
+│   ├── 5_runner.py              # Section 5: Local vs Cloud comparison
+│   └── 6_runner.py              # Section 6: Advanced RAG strategies
 │
 ├── analysis/                    # Jupyter notebooks for analysis
 │   ├── 3_baseline_analysis.ipynb # Baseline results analysis
 │   ├── 4_analysis.ipynb         # Section 4 comparative analysis
-│   └── 5_analysis.ipynb         # Section 5 local vs cloud analysis
+│   ├── 5_analysis.ipynb         # Section 5 local vs cloud analysis
+│   └── 6_analysis.ipynb         # Section 6 advanced strategies analysis
 │
 ├── data/                        # Input data
 │   └── iceberg-specs.pdf       # Apache Iceberg specification document
@@ -97,6 +99,17 @@ This generates multiple CSV files comparing:
 **Note:** Using `gpt-4o-mini` for fair comparison with llama3.2 8B model size.
 
 **Note:** Requires OpenAI API key in `.env` file (see Setup section).
+
+### Section 6: Advanced RAG Strategies
+
+Run section 6 experiments:
+```bash
+PYTHONPATH=. python experiments/6_runner.py
+```
+
+This generates multiple CSV files comparing:
+- **Basic Retrieval**: similarity_search(k=5) → direct to LLM
+- **Reranking**: similarity_search(k=10) → rerank by relevance → top 3 to LLM
 
 ## Analysis
 
@@ -280,14 +293,45 @@ The baseline RAG system was successfully implemented with:
 4. **For offline applications**: Use local (no network dependency)
 5. **For balanced approach**: Use hybrid (OpenAI LLM quality + local embedding privacy)
 
+### Section 6: Basic Retrieval vs Reranking
+
+**Experiments:**
+- **Basic Retrieval**: similarity_search(k=5) → direct to LLM
+- **Reranking**: similarity_search(k=10) → rerank by relevance → top 3 to LLM
+
+**Key Findings:**
+
+*Reranking Strategy:*
+- Retrieves k=10 documents initially
+- Uses LLM to score each document by relevance to the question
+- Selects top 3 most relevant documents
+- Passes only top 3 to final LLM for answer generation
+
+*Benefits:*
+- Reduces "Missed Top Rank" failures (relevant docs not in top k)
+- Reduces "Not in Context" failures (better document selection)
+- More accurate retrieval for complex queries
+- Addresses RAG anti-patterns from theory
+
+*Tradeoffs:*
+- Latency increases significantly (additional LLM calls for reranking - one per document)
+- Higher computational cost
+- More complex pipeline
+
+**When to Use Each Strategy:**
+
+1. **Basic Retrieval**: Fast, simple, good for explicit queries with clear keywords
+2. **Reranking**: Better for complex queries where top-k retrieval may miss relevant documents
+
 ## Technical Details
 
 - **Framework**: LangChain
 - **Vector Store**: Chroma (in-memory for baseline)
-- **Retrieval**: MultiQueryRetriever with k=3
+- **Retrieval**: MultiQueryRetriever with configurable k, supports basic/reranking strategies
 - **Chunking**: RecursiveCharacterTextSplitter
 - **LLM**: Ollama (local) or OpenAI (cloud) - configurable via `llm_provider`
 - **Embeddings**: Ollama (nomic-embed-text) or OpenAI (text-embedding-3-small) - configurable via `embedding_provider`
+- **Advanced Strategies**: Contextual retrieval (adds context descriptions), Reranking (LLM-based document reranking)
 
 ## Environment Variables
 

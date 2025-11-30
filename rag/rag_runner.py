@@ -3,6 +3,8 @@
 import ollama
 import time
 import os
+import json
+import re
 from typing import List, Dict, Any
 
 import pandas as pd
@@ -105,53 +107,101 @@ class RAGRunner:
         )
         return vector_db
     
-    def create_retriever(self, vector_db: Chroma) -> MultiQueryRetriever:
-        """Create a multi-query retriever.
+    def create_retriever(self, vector_db: Chroma):
+        """Create a retriever based on retrieval strategy.
         
         Args:
             vector_db: Chroma vector store instance
             
         Returns:
-            MultiQueryRetriever instance configured with the vector store
+            Retriever instance (MultiQueryRetriever or custom reranking retriever)
         """
-        QUERY_PROMPT = PromptTemplate(
-            input_variables=["question"],
-            template="""You are an AI language model assistant. Your task is to generate five
+        if self.config.retrieval_strategy == "reranking":
+            # For reranking: use basic retriever with k=10, reranking happens in chain
+            base_retriever = vector_db.as_retriever(
+                search_kwargs={"k": 10}  # Retrieve more for reranking
+            )
+            return base_retriever
+        else:
+            # Basic: use MultiQueryRetriever
+            QUERY_PROMPT = PromptTemplate(
+                input_variables=["question"],
+                template="""You are an AI language model assistant. Your task is to generate five
 different versions of the given user question to retrieve relevant documents from
 a vector database. By generating multiple perspectives on the user question, your
 goal is to help the user overcome some of the limitations of the distance-based
 similarity search. Provide these alternative questions separated by newlines.
 Original question: {question}""",
-        )
-        base_retriever = vector_db.as_retriever(
-            search_kwargs={"k": self.config.retrieval_k}
-        )
-        retriever = MultiQueryRetriever.from_llm(
-            base_retriever, self.llm, prompt=QUERY_PROMPT
-        )
-        return retriever
+            )
+            base_retriever = vector_db.as_retriever(
+                search_kwargs={"k": self.config.retrieval_k}
+            )
+            retriever = MultiQueryRetriever.from_llm(
+                base_retriever, self.llm, prompt=QUERY_PROMPT
+            )
+            return retriever
     
-    def create_chain(self, retriever: MultiQueryRetriever) -> Any:
+    def create_chain(self, retriever) -> Any:
         """Create the RAG chain for question answering.
         
         Args:
-            retriever: MultiQueryRetriever instance
+            retriever: Retriever instance (MultiQueryRetriever or basic retriever)
             
         Returns:
             LangChain chain that combines retrieval and generation
         """
-        template = """Answer the question based ONLY on the following context:
+        if self.config.retrieval_strategy == "reranking":
+            def rerank_and_answer(inputs: Dict[str, Any]) -> str:
+                question = inputs["question"]
+                
+                # Step 1: Retrieve documents from vector store
+                # get_relevant_documents() is the standard LangChain retriever method
+                docs = retriever.get_relevant_documents(question)
+                if not docs:
+                    return "No relevant documents found."
+                
+                # Step 2: Rerank all documents in single LLM call
+                # Format documents with indices for the LLM to rank
+                docs_text = "\n".join([f"[{i}] {doc.page_content[:300]}" for i, doc in enumerate(docs)])
+                rerank_prompt = ChatPromptTemplate.from_template(
+                    "Rank by relevance. Return ONLY JSON array of top {top_k} indices: [0,2,5]\n\nQ: {question}\nDocs:\n{docs_text}\n\nJSON:"
+                )
+                result = (rerank_prompt | self.llm | StrOutputParser()).invoke({
+                    "question": question,
+                    "docs_text": docs_text,
+                    "top_k": self.config.rerank_k
+                })
+                
+                # Step 3: Parse JSON array from LLM response
+                # Try direct JSON parse first, fallback to regex if LLM added extra text
+                try:
+                    top_indices = json.loads(result)
+                except json.JSONDecodeError:
+                    # LLM sometimes adds extra text, so extract JSON array with regex
+                    match = re.search(r'\[[\d\s,]+\]', result)
+                    top_indices = json.loads(match.group()) if match else list(range(min(self.config.rerank_k, len(docs))))
+                
+                # Step 4: Get top documents and generate answer
+                top_docs = [docs[i] for i in top_indices if 0 <= i < len(docs)][:self.config.rerank_k] or docs[:self.config.rerank_k]
+                context = "\n\n".join([doc.page_content for doc in top_docs])
+                answer_prompt = ChatPromptTemplate.from_template("Answer based ONLY on:\n{context}\n\nQ: {question}")
+                return (answer_prompt | self.llm | StrOutputParser()).invoke({"context": context, "question": question})
+            
+            return {"question": RunnablePassthrough()} | rerank_and_answer
+        else:
+            # Basic: standard chain
+            template = """Answer the question based ONLY on the following context:
 {context}
 Question: {question}
 """
-        prompt = ChatPromptTemplate.from_template(template)
-        chain = (
-            {"context": retriever, "question": RunnablePassthrough()}
-            | prompt
-            | self.llm
-            | StrOutputParser()
-        )
-        return chain
+            prompt = ChatPromptTemplate.from_template(template)
+            chain = (
+                {"context": retriever, "question": RunnablePassthrough()}
+                | prompt
+                | self.llm
+                | StrOutputParser()
+            )
+            return chain
     
     def run(self, questions: List[str]) -> pd.DataFrame:
         """Run the full RAG pipeline with given questions.
@@ -198,6 +248,7 @@ Question: {question}
                 "Chunk Size": self.config.chunk_size,
                 "Chunk Overlap": self.config.chunk_overlap,
                 "Retrieval K": self.config.retrieval_k,
+                "Retrieval Strategy": self.config.retrieval_strategy,
                 "Number of Chunks": len(chunks),
                 "Indexing Time (s)": round(indexing_time, 2),
             })
@@ -216,7 +267,8 @@ Question: {question}
         llm_model = self.config.model_name if self.config.llm_provider == "ollama" else self.config.openai_model
         embedding_model = self.config.embedding_model if self.config.embedding_provider == "ollama" else self.config.openai_embedding_model
         provider_tag = f"{self.config.llm_provider}-{self.config.embedding_provider}"
-        filename = f"chunk{self.config.chunk_size}_overlap{self.config.chunk_overlap}_k{self.config.retrieval_k}_{provider_tag}_{llm_model}_{embedding_model}.csv"
+        strategy_tag = f"_{self.config.retrieval_strategy}" if self.config.retrieval_strategy != "basic" else ""
+        filename = f"chunk{self.config.chunk_size}_overlap{self.config.chunk_overlap}_k{self.config.retrieval_k}{strategy_tag}_{provider_tag}_{llm_model}_{embedding_model}.csv"
         filepath = os.path.join("results", filename)
         report_df.to_csv(filepath, index=False)
         

@@ -36,6 +36,8 @@ class RAGConfig:
     
     # Retrieval settings
     retrieval_k: int = 5
+    retrieval_strategy: str = "basic"  # "basic" or "reranking"
+    rerank_k: int = 3  # For reranking: retrieve k=10, rerank to top 3
     
     # Vector store settings
     vector_store_name: str = "simple-rag"
