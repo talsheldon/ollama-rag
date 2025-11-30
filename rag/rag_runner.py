@@ -15,7 +15,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_classic.retrievers.multi_query import MultiQueryRetriever
 
-from rag_config import RAGConfig
+from rag.rag_config import RAGConfig
 
 
 class RAGRunner:

@@ -10,9 +10,9 @@ It uses the default configuration matching the video tutorial requirements:
 Output: CSV file in results/ directory with all metrics and responses.
 """
 
-from rag_config import RAGConfig
-from rag_runner import RAGRunner
-from questions import BASELINE_QUESTIONS
+from rag.rag_config import RAGConfig
+from rag.rag_runner import RAGRunner
+from rag.questions import BASELINE_QUESTIONS
 
 
 def main() -> None:

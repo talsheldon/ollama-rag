@@ -11,9 +11,9 @@ For overlap recommendations:
 Output: Multiple CSV files in results/ directory for comparison.
 """
 
-from rag_config import RAGConfig
-from rag_runner import RAGRunner
-from questions import BASELINE_QUESTIONS
+from rag.rag_config import RAGConfig
+from rag.rag_runner import RAGRunner
+from rag.questions import BASELINE_QUESTIONS
 
 
 def run_experiment(config: RAGConfig, experiment_name: str) -> bool:
