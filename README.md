@@ -89,6 +89,7 @@ python -m experiments.4_runner
 This generates multiple CSV files comparing:
 - **4.1**: Larger model (8B) vs baseline (3B)
 - **4.3**: Different chunk sizes (300, 3000) vs baseline (1200)
+  - Note: The 3000 chunk experiment failed with an embedding service error (`Post "http://127.0.0.1:49601/embedding": EOF (status code: 500)`). This indicates that Ollama's embedding service cannot handle chunks of 3000 characters, likely due to token limits or memory constraints. Results focus on the 300 chunk experiment which completed successfully.
 
 ### Section 5: Local vs Cloud Comparison
 
@@ -194,6 +195,8 @@ The baseline RAG system was successfully implemented with:
 - For simple questions, **300 chunks** perform well and faster than 1200 chunks
 
 **Trade-off:** **Smaller chunks (300)** provide faster responses but may lose context for complex questions compared to **larger chunks (1200)**. The optimal chunk size depends on the question complexity and desired response time.
+
+**Note on 3000 Chunk Experiment:** An attempt was made to test chunk_size=3000, but it failed during the embedding phase with error `Post "http://127.0.0.1:49601/embedding": EOF (status code: 500)`. This indicates that Ollama's embedding service (`nomic-embed-text`) cannot process chunks of 3000 characters, likely hitting token limits or memory constraints. The embedding service appears to have a practical limit below 3000 characters per chunk. For very large chunks, consider using a different embedding model or reducing chunk size to around 2500 characters or less.
 
 ### What Breaks When Changing One Decision?
 
