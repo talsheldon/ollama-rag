@@ -5,7 +5,7 @@ import time
 import os
 import json
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 import pandas as pd
 from langchain_ollama import OllamaEmbeddings, ChatOllama
@@ -15,7 +15,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import RunnablePassthrough, Runnable
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.documents import Document
 from langchain_classic.retrievers.multi_query import MultiQueryRetriever
 
 from rag.rag_config import RAGConfig
@@ -38,11 +40,11 @@ class RAGRunner:
         self.llm = self._create_llm()
         self.embeddings = self._create_embeddings()
     
-    def _create_llm(self):
+    def _create_llm(self) -> Union[ChatOllama, ChatOpenAI]:
         """Create LLM instance based on config.
-        
+
         Supports local Ollama or cloud OpenAI.
-        
+
         Returns:
             LLM instance (ChatOllama or ChatOpenAI)
         """
@@ -50,12 +52,12 @@ class RAGRunner:
             return ChatOpenAI(model=self.config.openai_model)
         else:
             return ChatOllama(model=self.config.model_name)
-    
-    def _create_embeddings(self):
+
+    def _create_embeddings(self) -> Union[OllamaEmbeddings, OpenAIEmbeddings]:
         """Create embeddings instance based on config.
-        
+
         Supports local Ollama or cloud OpenAI.
-        
+
         Returns:
             Embeddings instance (OllamaEmbeddings or OpenAIEmbeddings)
         """
@@ -65,40 +67,55 @@ class RAGRunner:
             # Pull the embedding model if not already available
             ollama.pull(self.config.embedding_model)
             return OllamaEmbeddings(model=self.config.embedding_model)
-    
-    def ingest(self) -> List[Any]:
+
+    def ingest(self) -> List[Document]:
         """Load PDF documents from the configured path.
-        
+
         Returns:
             List of document objects loaded from the PDF
+
+        Raises:
+            FileNotFoundError: If the document path does not exist
         """
+        if not os.path.exists(self.config.doc_path):
+            raise FileNotFoundError(f"Document not found at path: {self.config.doc_path}")
         loader = UnstructuredPDFLoader(file_path=self.config.doc_path)
         return loader.load()
-    
-    def split_documents(self, documents: List[Any]) -> List[Any]:
+
+    def split_documents(self, documents: List[Document]) -> List[Document]:
         """Split documents into smaller chunks.
-        
+
         Args:
             documents: List of document objects to split
-            
+
         Returns:
             List of document chunks
+
+        Raises:
+            ValueError: If documents list is empty
         """
+        if not documents:
+            raise ValueError("Cannot split empty documents list")
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.config.chunk_size,
             chunk_overlap=self.config.chunk_overlap
         )
         return text_splitter.split_documents(documents)
     
-    def create_vector_db(self, chunks: List[Any]) -> Chroma:
+    def create_vector_db(self, chunks: List[Document]) -> Chroma:
         """Create a vector database from document chunks.
-        
+
         Args:
             chunks: List of document chunks to embed and store
-            
+
         Returns:
             Chroma vector store instance
+
+        Raises:
+            ValueError: If chunks list is empty
         """
+        if not chunks:
+            raise ValueError("Cannot create vector database from empty chunks list")
         vector_db = Chroma.from_documents(
             documents=chunks,
             embedding=self.embeddings,
@@ -106,15 +123,15 @@ class RAGRunner:
             persist_directory=self.config.persist_directory,
         )
         return vector_db
-    
-    def create_retriever(self, vector_db: Chroma):
+
+    def create_retriever(self, vector_db: Chroma) -> Union[MultiQueryRetriever, BaseRetriever]:
         """Create a retriever based on retrieval strategy.
-        
+
         Args:
             vector_db: Chroma vector store instance
-            
+
         Returns:
-            Retriever instance (MultiQueryRetriever or custom reranking retriever)
+            Retriever instance (MultiQueryRetriever or basic retriever for reranking)
         """
         if self.config.retrieval_strategy == "reranking":
             # For reranking: use basic retriever with k=10, reranking happens in chain
@@ -140,13 +157,13 @@ Original question: {question}""",
                 base_retriever, self.llm, prompt=QUERY_PROMPT
             )
             return retriever
-    
-    def create_chain(self, retriever) -> Any:
+
+    def create_chain(self, retriever: Union[MultiQueryRetriever, BaseRetriever]) -> Runnable:
         """Create the RAG chain for question answering.
-        
+
         Args:
             retriever: Retriever instance (MultiQueryRetriever or basic retriever)
-            
+
         Returns:
             LangChain chain that combines retrieval and generation
         """

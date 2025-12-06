@@ -53,3 +53,4 @@ pytest tests/ --cov=rag --cov-report=html
 - Tests are designed to run quickly without external dependencies
 - The full pipeline test is a smoke test that verifies the flow works end-to-end
 
+

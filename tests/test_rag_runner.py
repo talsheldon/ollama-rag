@@ -47,20 +47,22 @@ class TestRAGRunnerInitialization:
 class TestDocumentIngestion:
     """Tests for document ingestion methods."""
     
+    @patch('rag.rag_runner.os.path.exists')
     @patch('rag.rag_runner.UnstructuredPDFLoader')
     @patch('rag.rag_runner.ChatOllama')
     @patch('rag.rag_runner.OllamaEmbeddings')
     @patch('ollama.pull')
-    def test_ingest(self, mock_pull, mock_embeddings, mock_llm, mock_loader, mock_config):
+    def test_ingest(self, mock_pull, mock_embeddings, mock_llm, mock_loader, mock_exists, mock_config):
         """Test document ingestion."""
+        mock_exists.return_value = True  # Mock file exists
         mock_docs = [MagicMock(), MagicMock()]
         mock_loader_instance = MagicMock()
         mock_loader_instance.load.return_value = mock_docs
         mock_loader.return_value = mock_loader_instance
-        
+
         runner = RAGRunner(mock_config)
         result = runner.ingest()
-        
+
         mock_loader.assert_called_once_with(file_path=mock_config.doc_path)
         assert result == mock_docs
     
@@ -200,7 +202,9 @@ class TestChainCreation:
 
 class TestFullPipeline:
     """Tests for the full RAG pipeline execution."""
-    
+
+    @patch('rag.rag_runner.MultiQueryRetriever')
+    @patch('rag.rag_runner.os.path.exists')
     @patch('rag.rag_runner.time.time')
     @patch('rag.rag_runner.os.path.join')
     @patch('rag.rag_runner.pd.DataFrame')
@@ -212,44 +216,116 @@ class TestFullPipeline:
     @patch('ollama.pull')
     def test_run_pipeline(
         self, mock_pull, mock_embeddings, mock_llm, mock_loader,
-        mock_splitter, mock_chroma, mock_df, mock_join, mock_time, mock_config
+        mock_splitter, mock_chroma, mock_df, mock_join, mock_time, mock_exists, mock_multi_query, mock_config
     ):
         """Test the full pipeline execution."""
         # Setup mocks
+        mock_exists.return_value = True  # Mock file exists
         mock_time.side_effect = [0.0, 1.0, 2.0, 3.0]  # indexing start, indexing end, q1 start, q1 end
         mock_join.return_value = "results/test.csv"
-        
+
         mock_docs = [MagicMock()]
         mock_loader_instance = MagicMock()
         mock_loader_instance.load.return_value = mock_docs
         mock_loader.return_value = mock_loader_instance
-        
+
         mock_chunks = [MagicMock(), MagicMock()]
         mock_splitter_instance = MagicMock()
         mock_splitter_instance.split_documents.return_value = mock_chunks
         mock_splitter.return_value = mock_splitter_instance
-        
+
         mock_vector_db = MagicMock()
         mock_retriever = MagicMock()
         mock_retriever.invoke.return_value = [MagicMock(page_content="Context")]
         mock_vector_db.as_retriever.return_value = mock_retriever
         mock_chroma.from_documents.return_value = mock_vector_db
-        
+
+        # Mock MultiQueryRetriever
+        mock_multi_query_instance = MagicMock()
+        mock_multi_query.from_llm.return_value = mock_multi_query_instance
+
         mock_chain = MagicMock()
         mock_chain.invoke.return_value = "Test answer"
-        
+
         # Create runner and patch chain creation
         runner = RAGRunner(mock_config)
         runner.create_chain = MagicMock(return_value=mock_chain)
-        
+
         # Run pipeline
         questions = ["What is Apache Iceberg?"]
         result = runner.run(questions)
-        
+
         # Verify calls
         assert mock_loader.called
         assert mock_splitter.called
         assert mock_chroma.from_documents.called
         assert mock_chain.invoke.called
         assert mock_df.called  # DataFrame should be created
+
+
+class TestEdgeCases:
+    """Tests for edge cases and error handling."""
+
+    def test_config_validation_negative_chunk_size(self):
+        """Test that negative chunk_size raises ValueError."""
+        with pytest.raises(ValueError, match="chunk_size must be positive"):
+            RAGConfig(chunk_size=-100)
+
+    def test_config_validation_negative_chunk_overlap(self):
+        """Test that negative chunk_overlap raises ValueError."""
+        with pytest.raises(ValueError, match="chunk_overlap must be non-negative"):
+            RAGConfig(chunk_overlap=-10)
+
+    def test_config_validation_overlap_greater_than_size(self):
+        """Test that overlap >= size raises ValueError."""
+        with pytest.raises(ValueError, match="chunk_overlap .* must be less than chunk_size"):
+            RAGConfig(chunk_size=100, chunk_overlap=100)
+
+    def test_config_validation_zero_retrieval_k(self):
+        """Test that retrieval_k <= 0 raises ValueError."""
+        with pytest.raises(ValueError, match="retrieval_k must be positive"):
+            RAGConfig(retrieval_k=0)
+
+    def test_config_validation_invalid_provider(self):
+        """Test that invalid provider raises ValueError."""
+        with pytest.raises(ValueError, match="llm_provider must be one of"):
+            RAGConfig(llm_provider="invalid_provider")
+
+    def test_config_validation_invalid_strategy(self):
+        """Test that invalid retrieval_strategy raises ValueError."""
+        with pytest.raises(ValueError, match="retrieval_strategy must be one of"):
+            RAGConfig(retrieval_strategy="invalid_strategy")
+
+    @patch('rag.rag_runner.os.path.exists')
+    @patch('rag.rag_runner.ChatOllama')
+    @patch('rag.rag_runner.OllamaEmbeddings')
+    @patch('ollama.pull')
+    def test_ingest_file_not_found(self, mock_pull, mock_embeddings, mock_llm, mock_exists, mock_config):
+        """Test that ingest raises FileNotFoundError when file doesn't exist."""
+        mock_exists.return_value = False
+
+        runner = RAGRunner(mock_config)
+
+        with pytest.raises(FileNotFoundError, match="Document not found at path"):
+            runner.ingest()
+
+    @patch('rag.rag_runner.ChatOllama')
+    @patch('rag.rag_runner.OllamaEmbeddings')
+    @patch('ollama.pull')
+    def test_split_documents_empty_list(self, mock_pull, mock_embeddings, mock_llm, mock_config):
+        """Test that split_documents raises ValueError for empty document list."""
+        runner = RAGRunner(mock_config)
+
+        with pytest.raises(ValueError, match="Cannot split empty documents list"):
+            runner.split_documents([])
+
+    @patch('rag.rag_runner.ChatOllama')
+    @patch('rag.rag_runner.OllamaEmbeddings')
+    @patch('ollama.pull')
+    def test_create_vector_db_empty_chunks(self, mock_pull, mock_embeddings, mock_llm, mock_config):
+        """Test that create_vector_db raises ValueError for empty chunks list."""
+        runner = RAGRunner(mock_config)
+
+        with pytest.raises(ValueError, match="Cannot create vector database from empty chunks list"):
+            runner.create_vector_db([])
 
