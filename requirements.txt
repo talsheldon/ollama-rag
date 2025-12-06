@@ -15,5 +15,6 @@ sentence-transformers
 elevenlabs
 pandas
 python-dotenv
+matplotlib
 pytest>=7.0.0
 pytest-mock>=3.10.0

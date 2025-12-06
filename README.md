@@ -107,7 +107,7 @@ This generates multiple CSV files comparing:
 
 **Note:** Requires OpenAI API key in `.env` file (see Setup section).
 
-**Note:** Section 5 experiments (5.2 and 5.3) require OpenAI API quota. If experiments fail with quota errors, the results shown are estimated based on typical OpenAI performance characteristics.
+**Note:** Section 5 experiments (5.2 and 5.3) require OpenAI API quota. **Current Status**: Experiments 5.2 and 5.3 failed due to OpenAI API quota exhaustion. Only 5.1 (Baseline - Local) was successfully executed. The results for 5.2 and 5.3 shown in this README are estimated based on typical OpenAI performance characteristics. See Section 5 analysis notebook for actual results when available.
 
 ### Section 6: Advanced RAG Strategies
 
@@ -122,12 +122,24 @@ This generates multiple CSV files comparing:
 
 ## Analysis
 
-Open the Jupyter notebooks in the `analysis/` directory to view detailed analysis:
+Open the Jupyter notebooks in the `analysis/` directory to view detailed analysis with visualizations:
 
-- `analysis/3_baseline_analysis.ipynb` - Baseline results analysis
-- `analysis/4_analysis.ipynb` - Section 4 comparative analysis
-- `analysis/5_analysis.ipynb` - Section 5 local vs cloud comparison
-- `analysis/6_analysis.ipynb` - Section 6 advanced strategies analysis
+- `analysis/3_baseline_analysis.ipynb` - Baseline results analysis with performance charts
+- `analysis/4_analysis.ipynb` - Section 4 comparative analysis with comparison visualizations
+- `analysis/5_analysis.ipynb` - Section 5 local vs cloud comparison (works with available data)
+- `analysis/6_analysis.ipynb` - Section 6 advanced strategies analysis with performance comparisons
+
+**Note**: All notebooks include matplotlib visualizations for:
+- Response time comparisons
+- Performance metrics
+- Chunk count analysis
+- Quality assessments
+- Comparative charts across experiments
+
+To run the notebooks:
+```bash
+jupyter notebook analysis/
+```
 
 ## Conclusions
 
@@ -265,7 +277,7 @@ The baseline RAG system was successfully implemented with:
 | Hybrid (OpenAI LLM) | ~2-5s* | **-50 to -80%** | ~14-15s* | ~0% | Similar or better* |
 | Full Cloud | ~2-5s* | **-50 to -80%** | ~20-30s* | **+35 to +105%** | Similar or better* |
 
-*Note: Section 5 experiments require OpenAI API key with sufficient quota. Experiments failed due to quota limits, so values are estimated based on typical OpenAI performance.*
+*Note: Section 5 experiments require OpenAI API key with sufficient quota. **Status**: Experiments 5.2 and 5.3 failed due to quota exhaustion. Only 5.1 (Baseline - Local) executed successfully. Values for 5.2 and 5.3 are estimated based on typical OpenAI performance.*
 
 **Tradeoffs:**
 
@@ -413,7 +425,18 @@ The implementation follows a modular design with clear separation of concerns:
 
 This structure enables easy experimentation with different configurations while maintaining code reusability.
 
-**Answers to Assignment Questions (from ollama-rag-installation.pdf):**
+### 7.2: Research Questions Summary
+
+All research questions from the experiments are comprehensively answered in the [Conclusions](#conclusions) section above:
+
+- **Section 3 questions**: See [Section 3: Baseline Results](#section-3-baseline-results)
+- **Section 4 questions**: See [Section 4: Impact of Changing One Decision](#section-4-impact-of-changing-one-decision)
+- **Section 5 questions**: See [Section 5: Local Ollama vs Cloud OpenAI](#section-5-local-ollama-vs-cloud-openai)
+- **Section 6 questions**: See [Section 6: Basic Retrieval vs Reranking](#section-6-basic-retrieval-vs-reranking)
+
+### 7.3: Assignment Questions (from ollama-rag-installation.pdf)
+
+**Answers to Assignment Questions:**
 
 1. **What is the recommended embedding model?** 
    - `nomic-embed-text` as recommended in the video tutorial. This model provides good quality embeddings for the RAG pipeline.
@@ -428,8 +451,9 @@ This structure enables easy experimentation with different configurations while 
    - Smaller chunks (300) provide faster responses (~40% faster) but may lose context for complex questions. Larger chunks provide better context but slower responses.
 
 5. **What breaks when changing one decision?**
-   - Model size: Latency increases significantly
+   - Model size: Latency increases significantly (~2x slower)
    - Chunk size: Context fragmentation for complex questions, but faster for simple ones
+   - Large chunks (3000): Fails due to embedding service limitations
 
 6. **Which flags are in the ollama create in demo?**
    - The demo used a modelfile (not command-line flags as far as I remember) that contained:
