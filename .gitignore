@@ -88,3 +88,6 @@ chroma_db/
 *.swo
 *~
 
+
+# AI
+.claude
