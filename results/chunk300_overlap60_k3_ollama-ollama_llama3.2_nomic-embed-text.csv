@@ -1,0 +1,19 @@
+Question,Response,Response Time (s),Accuracy,LLM Model,Embedding Model,Vector Store,Persist Directory,Chunk Size,Chunk Overlap,Retrieval K,Retrieval Strategy,Number of Chunks,Indexing Time (s),Average Response Time (s)
+What is Apache Iceberg? Explain in short.,"Apache Iceberg is a distributed columnar storage system designed for scalable and efficient data warehousing. It allows for storing large amounts of structured and semi-structured data, such as tabular data, XML, JSON, and variants. The system provides features like versioning, snapshotting, and concurrency control to ensure data integrity and consistency.",7.34,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),300,60,3,basic,682,13.9,9.77
+How does Iceberg ensure that two writers do not overwrite each others ingestion results?,"According to the context provided, there is no explicit information on how Iceberg ensures that two writers do not overwrite each other's ingestion results. However, it can be inferred that Iceberg uses schema evolution rules and mapping between the writer's and reader's schemas to handle this issue.
+
+The text states: ""Iceberg would build the desired reader schema with their schema evolution rules and pass that down to the ORC reader, which would then use its schema evolution to map that to the writer’s schema. Basically, Iceberg would need to change the names of columns and fields to get the desired mapping.""
+
+This suggests that Iceberg uses a mechanism to reconcile the differences in schema between writers and readers, but it does not explicitly state how this ensures that two writers do not overwrite each other's ingestion results.
+
+However, another part of the text mentions ""write-default"" which is used for a field. It also talks about column projection where columns are selected by field id. 
+
+So we can infer one thing that, Iceberg requires 'write-default' to be used for the field and use column ids in the projection.",10.82,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),300,60,3,basic,682,13.9,9.77
+How to access data that was deleted in a newer snapshot?,"To access data that was deleted in a newer snapshot, you would need to look for the presence of deletion vectors (DV) in the delete formats. Deletion vectors contain information about which files were deleted and when, including the snapshot ID in which the file was deleted and status 2 (deleted). 
+
+The deleted data can be accessed by reading the data that remains in the current snapshot and excluding any rows that are marked for deletion according to the position delete files or the timestamp of the older snapshot.
+
+Alternatively, if the metrics show that a delete file has no rows that match the scan predicate, it may be ignored just as a data file would be ignored. However, you should check if there is at most one deletion vector per data file in a snapshot and ensure that writers have written only one. 
+
+Also note that when performing scans, readers use O(1) remote calls to plan the files for a scan, which can make reading deleted data more efficient than doing it manually by looking up files that were deleted from previous snapshots.",14.24,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),300,60,3,basic,682,13.9,9.77
+What happens if a writer attempts to commit based on an old snapshot?,"According to the provided context, if a writer attempts to commit based on an old snapshot that is no longer current, they ""must retry the update based on the new current version"".",6.69,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),300,60,3,basic,682,13.9,9.77

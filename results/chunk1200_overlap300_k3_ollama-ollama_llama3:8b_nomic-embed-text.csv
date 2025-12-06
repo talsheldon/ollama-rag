@@ -1,0 +1,22 @@
+Question,Response,Response Time (s),Accuracy,LLM Model,Embedding Model,Vector Store,Persist Directory,Chunk Size,Chunk Overlap,Retrieval K,Retrieval Strategy,Number of Chunks,Indexing Time (s),Average Response Time (s)
+What is Apache Iceberg? Explain in short.,"Based on the provided context, Apache Iceberg is a table format designed to manage large, slow-changing collections of files in distributed file systems or key-value stores as tables. It's a scalable and efficient way to store and query data.",15.28,[To be evaluated],llama3:8b,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,14.03,23.23
+How does Iceberg ensure that two writers do not overwrite each others ingestion results?,"Based on the provided context, it appears that Iceberg ensures that two writers do not overwrite each other's ingestion results by using a combination of sequence numbers and optimistic concurrency control.
+
+When a writer creates an update to a table metadata file, it does so optimistically, assuming that the current version will not be changed before the writer's commit. The writer assigns a new sequence number to the updated metadata file and writes it into the snapshot metadata. If another writer tries to commit at the same time, they will see the latest sequence number and update their own metadata files accordingly.
+
+This mechanism ensures that all writers agree on a single version of the truth before committing their changes, preventing overwrite conflicts. Additionally, readers use the snapshot that was current when they loaded the table metadata, so they are not affected by concurrent writes until they refresh and pick up a new metadata location.
+
+It is worth noting that this question was based only on the provided context and may not capture all the details of how Iceberg ensures concurrency control in practice.",23.29,[To be evaluated],llama3:8b,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,14.03,23.23
+How to access data that was deleted in a newer snapshot?,"Based on the provided context, it seems that you are referring to accessing data that was deleted in a newer snapshot.
+
+To answer your question:
+
+Accessing data that was deleted in a newer snapshot is possible through the use of `DELETED` or `REMOVED` manifests. These types of manifests indicate that certain files were deleted from the table.
+
+When reading data, readers must apply deletion vectors to the data files at read time, as long as all the following conditions are met:
+
+1. The data file's file_path is equal to the deletion vector's referenced_data_file.
+2. The data file's data sequence number is less than or equal to the deletion vector's data_sequence_number.
+
+In this case, you would need to apply the deletion vectors and remove any files that match the deleted files mentioned in the newer snapshot's manifests. This ensures that your reader correctly reflects the state of the table at a given point in time.",35.14,[To be evaluated],llama3:8b,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,14.03,23.23
+What happens if a writer attempts to commit based on an old snapshot?,"According to the provided context, if a writer attempts to commit based on an old snapshot, it must retry the update based on the new current version of the table metadata and verify that the conditions under which the update can be applied are met. This is known as ""commit conflict resolution and retry"".",19.19,[To be evaluated],llama3:8b,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,14.03,23.23
