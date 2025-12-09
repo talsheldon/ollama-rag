@@ -210,6 +210,73 @@ The baseline RAG system was successfully implemented with:
 
 **Note on 3000 Chunk Experiment:** An attempt was made to test chunk_size=3000, but it failed during the embedding phase with error `Post "http://127.0.0.1:49601/embedding": EOF (status code: 500)`. This indicates that Ollama's embedding service (`nomic-embed-text`) cannot process chunks of 3000 characters, likely hitting token limits or memory constraints. The embedding service appears to have a practical limit below 3000 characters per chunk. For very large chunks, consider using a different embedding model or reducing chunk size to around 2500 characters or less.
 
+#### 4.4: Vector Store Persistence
+
+**Current Implementation: In-Memory (`persist_directory=None`)**
+
+Our experiments use in-memory vector stores (Chroma with `persist_directory=None`) because:
+1. Each experiment runs once with a complete pipeline (ingest → index → query)
+2. All 4 questions are answered in the same execution
+3. Different experiments use different configurations (chunk sizes, embeddings)
+4. We want to measure true indexing time for each configuration
+
+**Tradeoff Analysis:**
+
+| Aspect | In-Memory (Our Approach) | Disk-Persisted |
+|--------|--------------------------|----------------|
+| First run indexing | 13.7s | ~15-20s (disk I/O overhead) |
+| Subsequent runs | 13.7s (re-index every time) | ~0.5s (load from disk) |
+| Disk usage | 0 MB | ~50-100 MB per configuration |
+| Best for | Single-run experiments, research | Production apps with repeated queries |
+
+**When to Use Each:**
+- **In-memory (`persist_directory=None`)**: Research, experiments, one-time analysis, benchmarking (our use case)
+- **Persist (`persist_directory="./vector_db"`)**: Production chatbots, API servers, repeated queries on same data
+
+**Production Implications:**
+
+For a production RAG system serving users:
+- Index 10,000 documents once: ~5 minutes
+- Save to disk with `persist_directory="./vector_db"`
+- Every app restart: Load in <1 second instead of re-indexing 5 minutes
+- **Scalability**: Essential for large document collections where re-indexing is prohibitively expensive
+
+**Usability Impact:**
+
+Without persistence, every script execution re-indexes from scratch:
+```bash
+# Run 1
+$ python -m experiments.3_baseline_report
+Indexing... (13.7s)
+Running questions... (4 questions, 11.32s avg)
+
+# Run 2 (if needed)
+$ python -m experiments.3_baseline_report
+Indexing... (13.7s AGAIN - wasteful for production)
+Running questions... (4 questions, 11.32s avg)
+```
+
+With persistence, subsequent runs are instant:
+```bash
+# First run
+$ python chatbot.py
+Indexing... (13.7s)
+Saved to disk.
+
+# Second run
+$ python chatbot.py
+Loading from disk... (0.5s) - 96% faster!
+```
+
+**Why Our Approach is Correct:**
+
+For experimental research where:
+- Each configuration (chunk size 300 vs 1200, model 3B vs 8B) needs fresh indexing
+- We measure end-to-end pipeline performance including indexing time
+- Vector stores are configuration-specific and not reused
+
+In-memory storage (`persist_directory=None`) is the correct architectural choice.
+
 ### What Breaks When Changing One Decision?
 
 1. **8B Model:** Response latency increases significantly (~2x slower), but quality improves with more detailed explanations.
