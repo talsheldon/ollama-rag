@@ -288,6 +288,30 @@ For experimental research where:
 
 In-memory storage (`persist_directory=None`) is the correct architectural choice.
 
+#### 4.6: Design Decision Rationale
+
+**Why separate Retrieval from Indexing?**
+- Direct grep/regex only finds exact matches; misses "write conflict" when document says "concurrent modification"
+- Vector embeddings enable semantic search: similar meanings = similar vectors
+- Amortized cost: Index once (13.7s), query many times (<1s per search)
+
+**Why Chroma?**
+- Lightweight: No external server (unlike Pinecone, Weaviate)
+- Python-native: Seamless LangChain integration
+- In-memory mode: Perfect for experiments
+- Alternatives: FAISS (faster, complex), Pinecone (production-scale, costly), Weaviate (heavyweight)
+
+**Why nomic-embed-text?**
+- Optimized for local Ollama deployment (137M parameters)
+- Free, offline, no API costs or rate limits
+- Good quality-to-speed ratio for RAG
+- Alternatives: mxbai-embed-large (better quality, slower), OpenAI embeddings (best quality, costs money)
+
+**Why chunk_size=1200?**
+- Balance: Too small (300) = context loss; too large (3000) = embedding fails (500 error)
+- ~200-300 tokens: Within nomic-embed-text's limits
+- Empirically validated: Best quality-to-performance ratio in our experiments
+
 ### What Breaks When Changing One Decision?
 
 1. **8B Model:** Response latency increases significantly (~2x slower), but quality improves with more detailed explanations.
