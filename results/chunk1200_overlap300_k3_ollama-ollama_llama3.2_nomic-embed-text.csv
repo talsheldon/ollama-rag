@@ -1,15 +1,30 @@
-Question,Response,Response Time (s),Accuracy,LLM Model,Embedding Model,Vector Store,Persist Directory,Chunk Size,Chunk Overlap,Retrieval K,Retrieval Strategy,Number of Chunks,Indexing Time (s),Average Response Time (s)
-What is Apache Iceberg? Explain in short.,"Apache Iceberg is a distributed file system designed to manage large, slow-changing collections of files in a scalable and efficient manner. It is based on semi-structured data types such as variants, arrays, and objects, which allow for flexible data formats and versioning. The goal of Apache Iceberg is to provide serializable isolation, speed, and scalability for operations such as reading and writing data.",8.27,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,13.7,11.32
-How does Iceberg ensure that two writers do not overwrite each others ingestion results?,"The text doesn't explicitly explain how Iceberg ensures that two writers do not overwrite each other's ingestion results. However, it mentions that ""Writers create table metadata files optimistically, assuming that the current version will not be changed before the writer's commit."" This implies that each writer assumes its changes are stable and writes them to the metadata file without checking for potential conflicts with other writers.
+Question,Response,Response Time (s),Accuracy,LLM Model,Embedding Model,Vector Store,Persist Directory,Chunk Size,Chunk Overlap,Retrieval K,Retrieval Strategy,Contextual Chunks,Number of Chunks,Indexing Time (s),Average Response Time (s)
+What is Apache Iceberg? Explain in short.,"Apache Iceberg is an open-source storage format for big data, designed to provide efficient and scalable data management capabilities. It allows for flexible partitioning and sorting of data, enabling improved data management, serialization isolation, and cost-based optimization. Iceberg supports various features such as default value support, multi-argument transforms, row lineage tracking, and table encryption keys. Its goal is to enable reads to be isolated from concurrent writes, reducing the risk of data corruption, while also improving read performance and scalability.",11.81,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,Yes,175,476.2,14.81
+How does Iceberg ensure that two writers do not overwrite each others ingestion results?,"According to the specification, Iceberg uses a ""disjoint ID range"" approach to ensure that two writers do not overwrite each other's ingestion results. When a new snapshot is created in a different branch, it assigns a disjoint ID range to existing data files based on the table's next-row-id when the snapshot is committed.
 
-It also mentions that if a write fails due to a conflict (e.g., because another writer has committed since the original writer started), it must retry the update based on the new current version. This suggests that Iceberg uses some form of versioning and snapshotting to handle concurrent writes, but the exact mechanism is not specified.
+This means that even if multiple writers are writing to the same table at the same time, they will use different IDs for their data files, preventing overwriting. Additionally, Iceberg also uses sequence numbers to track the relative age of data and delete files, which helps to prevent stale or outdated data from being overwritten.",14.69,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,Yes,175,476.2,14.81
+How to access data that was deleted in a newer snapshot?,"To access data that was deleted in a newer snapshot, you can use the deletion vectors or position delete records.
 
-One possible interpretation is that Iceberg uses a ""optimistic concurrency control"" approach, where writers assume they are the only one writing to the table until they commit their changes. If another writer commits before them, the first writer will detect the conflict and retry using the new current version. However, without further information, it's difficult to say for certain how Iceberg handles concurrent writes and ensures data consistency.",13.14,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,13.7,11.32
-How to access data that was deleted in a newer snapshot?,"To access data that was deleted in a newer snapshot, you can use the ""delete vectors"" feature. Position delete files are deprecated in v3 and should be written to delete vectors when updating position deletes for a data file.
+Deletion Vectors:
 
-Readers can safely ignore matching position delete files if there is a DV (Deletion Vector) for a data file. Writers must merge DVs (and older position delete files) to ensure there is at most one DV per data file.
+* Deletion vectors identify deleted rows of a file by encoding deleted positions in a bitmap.
+* A set bit at position P indicates that the row at position P is deleted.
+* Deletion vectors are stored using the deletion-vector-v1 blob definition from the Puffin spec.
 
-To access deleted data, you can use the ""referenced_data_file"" metadata field and the ""content_offset"" and ""content_size_in_bytes"" fields. These values are required for deletion vectors and must exactly match the offset and length stored in the Pufﬁn footer for the deletion vector blob.
+Position Delete Records:
 
-When a file is replaced or deleted from the dataset, its manifest entry fields store the snapshot ID in which the file was deleted and status 2 (deleted). The file may be deleted from the file system when the snapshot in which it was deleted is garbage collected, assuming that older snapshots have also been garbage collected.",14.65,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,13.7,11.32
-What happens if a writer attempts to commit based on an old snapshot?,"If a writer attempts to commit based on an old snapshot, it must retry the update based on the new current version of table metadata.",9.2,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,175,13.7,11.32
+* Position delete records track deleted rows of a file by storing the positions of deleted rows.
+* These records can be used to reconstruct a stream of changes to a table.
+
+To access data that was deleted in a newer snapshot, you can use these deletion vectors or position delete records. The exact process will depend on the specifics of your use case and the version of Apache Iceberg you are using.
+
+Here is an example of how you might use these records:
+
+1. Get the latest manifest for the file you are interested in.
+2. Check if there are any deleted rows in the manifest. If so, check the deletion vectors or position delete records to determine which rows were deleted and where they were located.
+3. Use the location information from the deletion vectors or position delete records to access the data that was previously stored at those locations.
+
+It's worth noting that Apache Iceberg also supports point-in-time reads, which allow you to read data at a specific timestamp. If you need to access data that was deleted in a newer snapshot, you may be able to use this feature to get the latest version of the data before it was deleted.",19.6,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,Yes,175,476.2,14.81
+What happens if a writer attempts to commit based on an old snapshot?,"If a writer attempts to commit based on an old snapshot, it means that the writer is trying to use a snapshot that has already been expired from the list of valid snapshots. In this case, all entries before the expired snapshot should be removed from the metadata log.
+
+According to the specification, if a writer attempts to commit based on an old snapshot, the resulting snapshot will not be considered valid, and any data written to it will eventually become garbage collected.",13.13,[To be evaluated],llama3.2,nomic-embed-text,Chroma,None (in-memory),1200,300,3,basic,Yes,175,476.2,14.81

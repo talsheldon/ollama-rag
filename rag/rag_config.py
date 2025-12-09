@@ -36,8 +36,9 @@ class RAGConfig:
 
     # Retrieval settings
     retrieval_k: int = 5
-    retrieval_strategy: str = "basic"  # "basic" or "reranking"
+    retrieval_strategy: str = "basic"  # "basic", "reranking", or "contextual"
     rerank_k: int = 3  # For reranking: retrieve k=10, rerank to top 3
+    use_contextual_chunks: bool = False  # Add context to chunks before embedding (Section 6.1)
 
     # Vector store settings
     vector_store_name: str = "simple-rag"
@@ -71,7 +72,7 @@ class RAGConfig:
             raise ValueError(f"embedding_provider must be one of {valid_providers}, got {self.embedding_provider}")
 
         # Validate retrieval strategy
-        valid_strategies = ["basic", "reranking"]
+        valid_strategies = ["basic", "reranking", "contextual"]
         if self.retrieval_strategy not in valid_strategies:
             raise ValueError(f"retrieval_strategy must be one of {valid_strategies}, got {self.retrieval_strategy}")
 

@@ -112,11 +112,22 @@ This generates multiple CSV files comparing:
 ### Section 6: Advanced RAG Strategies
 
 Run section 6 experiments:
+
+**Section 6.1 - Contextual Retrieval:**
+```bash
+python -m experiments.6_1_contextual_runner
+```
+Compares:
+- **Basic RAG**: Standard chunking and embedding
+- **Contextual Retrieval**: LLM-generated context added to each chunk before embedding
+
+**Note:** Section 6.1 takes significantly longer (~8 minutes) due to 175 LLM calls for context generation.
+
+**Section 6.2 - Reranking:**
 ```bash
 python -m experiments.6_runner
 ```
-
-This generates multiple CSV files comparing:
+Compares:
 - **Basic Retrieval**: MultiQueryRetriever with k=5 → direct to LLM
 - **Reranking**: Basic retriever with k=10 → rerank by relevance → top 3 to LLM
 
@@ -393,7 +404,67 @@ In-memory storage (`persist_directory=None`) is the correct architectural choice
 4. **For offline applications**: Use local (no network dependency)
 5. **For balanced approach**: Use hybrid (OpenAI LLM quality + local embedding privacy)
 
-### Section 6: Basic Retrieval vs Reranking
+### Section 6: Advanced RAG Strategies
+
+The assignment requires testing at least two advanced RAG strategies. We implemented:
+- **6.1: Basic RAG vs Contextual Retrieval** (Anthropic's approach)
+- **6.2: Basic Retrieval vs Reranking**
+
+#### 6.1: Basic RAG vs Contextual Retrieval
+
+**Experiments:**
+- **Basic RAG**: Embed chunks as-is (standard approach)
+- **Contextual Retrieval**: Add LLM-generated context to each chunk before embedding (Anthropic's approach)
+
+**Contextual Retrieval Approach:**
+
+Following Anthropic's Contextual Retrieval methodology:
+1. Before embedding each chunk, use LLM to generate a brief (1-2 sentence) context/summary
+2. Prepend context to chunk: `[CONTEXT: summary]\n\n{original_chunk_content}`
+3. Embed the contextual chunk (not just the original content)
+4. This helps with "boundary questions" that span multiple chunks
+
+**Key Findings:**
+
+*Performance Results:*
+- **Basic RAG**: Average response time **12.91s**, Indexing time **16.77s**
+- **Contextual Retrieval**: Average response time **14.81s**, Indexing time **476.2s**
+- **Trade-off**: Contextual retrieval is **~15% slower** for responses but **~28x slower** for indexing (due to 175 LLM calls to generate context)
+
+*Quality Impact:*
+
+Both approaches used k=3 retrieval with the same baseline configuration.
+
+**Response Quality Comparison:**
+- Basic RAG and Contextual Retrieval showed similar response quality for the 4 baseline questions
+- Contextual retrieval provides richer semantic embeddings by including document-level context
+- Most beneficial for "boundary questions" where relevant information spans multiple chunks
+
+*Benefits of Contextual Retrieval:*
+- Better retrieval for questions requiring broader document understanding
+- More context-aware embeddings (each chunk "knows" what document section it belongs to)
+- Reduces "Lost in the Middle" problems where important context is split across chunks
+- Improved semantic search quality
+
+*Tradeoffs:*
+- **Significantly longer indexing time**: 476s vs 17s (~28x slower)
+  - Must make 175 LLM calls (one per chunk) to generate context
+  - For 175 chunks, that's ~2.7 seconds per chunk on average
+- **Slightly slower query time**: 14.81s vs 12.91s (~15% slower)
+- **Larger chunk sizes**: Adding context increases token count per chunk
+- **Cost**: If using cloud LLM, 175 extra API calls for context generation
+
+**When to Use Each Strategy:**
+
+1. **Basic RAG**: Fast iteration, development, small documents, tight latency requirements
+2. **Contextual Retrieval**: Production systems with complex documents, boundary-spanning questions, when indexing time is less critical than query accuracy
+
+**Recommendation:**
+- For this project's use case (175 chunks, research context), **Basic RAG is more practical**
+- For production with 10,000+ chunks and complex multi-document queries, contextual retrieval's accuracy gains may justify the 28x indexing overhead
+- Consider hybrid: Use contextual retrieval only for critical document sections, basic for the rest
+
+#### 6.2: Basic Retrieval vs Reranking
 
 **Experiments:**
 - **Basic Retrieval**: MultiQueryRetriever with k=5 → direct to LLM
@@ -468,7 +539,7 @@ In-memory storage (`persist_directory=None`) is the correct architectural choice
 - **Chunking**: RecursiveCharacterTextSplitter
 - **LLM**: Ollama (local) or OpenAI (cloud) - configurable via `llm_provider`
 - **Embeddings**: Ollama (nomic-embed-text) or OpenAI (text-embedding-3-small) - configurable via `embedding_provider`
-- **Advanced Strategies**: Reranking (LLM-based document reranking with single call optimization)
+- **Advanced Strategies**: Contextual Retrieval (Anthropic's approach with LLM-generated chunk context), Reranking (LLM-based document reranking with single call optimization)
 
 ## Environment Variables
 

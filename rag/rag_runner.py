@@ -101,7 +101,60 @@ class RAGRunner:
             chunk_overlap=self.config.chunk_overlap
         )
         return text_splitter.split_documents(documents)
-    
+
+    def add_context_to_chunks(self, chunks: List[Document]) -> List[Document]:
+        """Add contextual information to each chunk using LLM (Anthropic's Contextual Retrieval).
+
+        For each chunk, generates a brief context/summary using the LLM and prepends it
+        to the chunk content before embedding. This helps with retrieval accuracy for
+        questions that span chunk boundaries.
+
+        Args:
+            chunks: List of document chunks
+
+        Returns:
+            List of chunks with added context
+
+        Raises:
+            ValueError: If chunks list is empty
+        """
+        if not chunks:
+            raise ValueError("Cannot add context to empty chunks list")
+
+        print(f"Adding context to {len(chunks)} chunks using LLM...")
+        contextual_chunks = []
+
+        for i, chunk in enumerate(chunks):
+            if i % 10 == 0:
+                print(f"  Processing chunk {i+1}/{len(chunks)}...")
+
+            # Use LLM to generate brief context for this chunk
+            context_prompt = f"""Given the following text chunk from a document, provide a brief 1-2 sentence context or summary that describes what this chunk is about. Be concise.
+
+Text chunk:
+{chunk.page_content[:500]}...
+
+Brief context (1-2 sentences):"""
+
+            try:
+                context = self.llm.invoke(context_prompt).content if hasattr(self.llm.invoke(context_prompt), 'content') else str(self.llm.invoke(context_prompt))
+                context = context.strip()
+
+                # Create new chunk with context prepended
+                contextual_content = f"[CONTEXT: {context}]\n\n{chunk.page_content}"
+                contextual_chunk = Document(
+                    page_content=contextual_content,
+                    metadata=chunk.metadata
+                )
+                contextual_chunks.append(contextual_chunk)
+            except Exception as e:
+                print(f"  Warning: Failed to generate context for chunk {i}: {e}")
+                # Fall back to original chunk if context generation fails
+                contextual_chunks.append(chunk)
+
+        print(f"Context added to all chunks.")
+        return contextual_chunks
+
     def create_vector_db(self, chunks: List[Document]) -> Chroma:
         """Create a vector database from document chunks.
 
@@ -241,6 +294,11 @@ Question: {question}
         start = time.time()
         data = self.ingest()
         chunks = self.split_documents(data)
+
+        # Add context to chunks if enabled (Section 6.1: Contextual Retrieval)
+        if self.config.use_contextual_chunks:
+            chunks = self.add_context_to_chunks(chunks)
+
         vector_db = self.create_vector_db(chunks)
         indexing_time = time.time() - start
         
@@ -270,6 +328,7 @@ Question: {question}
                 "Chunk Overlap": self.config.chunk_overlap,
                 "Retrieval K": self.config.retrieval_k,
                 "Retrieval Strategy": self.config.retrieval_strategy,
+                "Contextual Chunks": "Yes" if self.config.use_contextual_chunks else "No",
                 "Number of Chunks": len(chunks),
                 "Indexing Time (s)": round(indexing_time, 2),
             })
