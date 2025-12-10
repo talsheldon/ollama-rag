@@ -44,10 +44,16 @@ ollama-rag/
 
 ## Setup
 
-1. **Install dependencies:**
+1. **Install the project:**
    ```bash
+   # Option 1: Install in development mode (recommended for running experiments)
+   pip install -e .
+
+   # Option 2: Install dependencies only
    pip install -r requirements.txt
    ```
+
+   The project is organized as a Python package (`ollama-rag-benchmark`) with the `rag` module containing core components.
 
 2. **Ensure Ollama is running:**
    ```bash

@@ -1,0 +1,53 @@
+[project]
+name = "ollama-rag-benchmark"
+version = "1.0.0"
+description = "RAG system benchmark comparing Ollama and OpenAI configurations"
+requires-python = ">=3.10"
+authors = [
+    {name = "Tal Shel", email = "tal.shel@example.com"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+
+dependencies = [
+    "ollama",
+    "chromadb",
+    "pdfplumber",
+    "langchain",
+    "langchain-core",
+    "langchain-ollama",
+    "langchain-openai",
+    "langchain-community",
+    "langchain_text_splitters",
+    "unstructured",
+    "unstructured[all-docs]",
+    "fastembed",
+    "pikepdf",
+    "sentence-transformers",
+    "elevenlabs",
+    "pandas",
+    "python-dotenv",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.10.0",
+    "pytest-cov>=4.1.0",
+    "jupyter",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["rag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers"
