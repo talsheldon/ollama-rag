@@ -445,6 +445,8 @@ In-memory storage (`persist_directory=None`) is the correct architectural choice
 4. **For offline applications**: Use local (no network dependency)
 5. **For balanced approach**: Use hybrid (OpenAI LLM quality + local embedding privacy)
 
+**Note:** For detailed cost breakdown, break-even analysis, and real-world production scenarios, see [Appendix A: Detailed Cost Analysis](#appendix-a-detailed-cost-analysis).
+
 ### Section 6: Advanced RAG Strategies
 
 The assignment requires testing at least two advanced RAG strategies. We implemented:
@@ -687,11 +689,61 @@ pytest tests/ --cov=rag --cov-report=term-missing
 
 All commands executed successfully with output documented in the experimental results (CSV files in `results/` directory).
 
-## Section 9: Cost Analysis
+## Section 9: Quality Assurance and Best Practices
 
-### 9.1: Local vs Cloud Cost Comparison
+### 9.1: Software Quality Metrics
 
-This section analyzes the financial and operational trade-offs between local (Ollama) and cloud (OpenAI) deployments.
+This project demonstrates compliance with ISO/IEC 25010 software quality standards:
+
+- **Functionality**: 85% test coverage with comprehensive unit tests
+- **Reliability**: Robust error handling for edge cases (empty retrievals, JSON parsing failures)
+- **Usability**: Clear modular design with configurable parameters
+- **Efficiency**: Optimized retrieval strategies (basic vs reranking)
+- **Maintainability**: Clean separation of concerns with rag_config.py, rag_runner.py
+- **Portability**: Works across platforms with Python 3.10+
+
+### 9.2: RAG System Design - Dos and Don'ts
+
+This table summarizes best practices learned from experiments, with the cost of deviating from recommendations:
+
+| Decision | ✅ DO | ❌ DON'T | 💰 Price to Deviate |
+|----------|-------|----------|---------------------|
+| **Model Size** | Use 3B (llama3.2) for balanced performance | Use 8B for all queries blindly | +107% latency (2x slower) without quality requirements |
+| **Chunk Size** | Use 1200 for balanced context/speed | Use 300 for complex questions | -1 to -2 quality points (context fragmentation) |
+| **Chunk Size** | Stay under ~2500 characters | Use chunks >3000 characters | Complete failure (embedding service 500 error) |
+| **Retrieval k** | Use k=3 for baseline, k=5+ for complex queries | Use k=1 or k=2 (too few) | "Missed Top Rank" failures, incomplete answers |
+| **Vector Store** | Use in-memory for experiments/research | Persist to disk for single-run experiments | Wasted disk space (~50-100 MB), slower first run (+2-5s) |
+| **Vector Store** | Persist to disk for production apps | Re-index on every restart in production | 13.7s startup delay per restart (vs 0.5s load) |
+| **Embeddings** | Use nomic-embed-text for local/offline | Use OpenAI embeddings without need | API costs (~$0.02 per 1M tokens) + network dependency |
+| **LLM Provider** | Use local Ollama for privacy/cost-sensitive | Use cloud without considering privacy | Data sent to external servers, ongoing API costs |
+| **LLM Provider** | Use cloud OpenAI for speed-critical apps | Use local for latency-sensitive production | 50-80% slower responses (11s vs 2-5s) |
+| **Retrieval Strategy** | Use basic retrieval for simple queries | Use reranking for everything | Unnecessary complexity, minimal quality gain for simple queries |
+| **Retrieval Strategy** | Use reranking for complex multi-hop queries | Use basic retrieval with low k for complex queries | "Missed Top Rank" failures, incomplete context |
+| **Contextual Chunks** | Use for production with 10,000+ chunks | Use for small datasets (<500 chunks) | 28x indexing overhead (476s vs 17s) without quality justification |
+| **Contextual Chunks** | Use basic RAG for fast iteration | Add context without measuring benefit | Wasted compute (175 extra LLM calls) and time |
+| **Error Handling** | Validate chunk size before embedding | Ignore embedding service limits | Runtime failures, wasted indexing time |
+| **Testing** | Maintain 70%+ test coverage | Skip tests for "simple" code | Regression bugs, production failures |
+| **Configuration** | Use dataclasses for config management | Hardcode parameters in multiple files | Difficult to experiment, inconsistent configurations |
+| **Experimentation** | Change ONE variable at a time | Change multiple variables simultaneously | Cannot isolate cause of performance changes |
+| **Metrics** | Measure indexing AND response time | Only measure response time | Hidden performance bottlenecks during scaling |
+| **Documentation** | Document failures (like 3000 chunk error) | Hide failed experiments | Repeated mistakes, wasted time debugging known issues |
+
+**Key Principles:**
+
+1. **Measure First, Optimize Later**: Don't add complexity (reranking, contextual chunks) without measuring baseline performance
+2. **One Variable at a Time**: Isolate changes to understand impact (Section 4 methodology)
+3. **Know Your Limits**: Embedding service has hard limits (~3000 chars); test boundaries early
+4. **Balance Trade-offs**: Speed vs quality, cost vs privacy, complexity vs maintainability
+5. **Production ≠ Research**: In-memory works for experiments; persistence essential for production
+6. **Document Everything**: Failed experiments teach as much as successful ones
+
+---
+
+## Appendix A: Detailed Cost Analysis
+
+### A.1: Local vs Cloud Cost Comparison
+
+This appendix provides detailed financial and operational analysis for local (Ollama) vs cloud (OpenAI) deployments.
 
 #### Cost Breakdown
 
@@ -780,58 +832,10 @@ For this RAG homework project:
 | **Hybrid** (local embeddings + cloud LLM) | ~$600 | Balanced cost/performance | Complex setup, partial privacy |
 | **Recommended**: Local with cloud fallback | ~$100 | Cost-effective, privacy-first, fast fallback | Most complex architecture |
 
-### 9.2: Cost Optimization Strategies
+### A.2: Cost Optimization Strategies
 
 1. **Batch Processing**: Group embeddings to reduce API calls
 2. **Caching**: Store frequent query results (reduce 70% of repeat queries)
 3. **Hybrid Architecture**: Local for embeddings, cloud for LLM only
 4. **Model Selection**: Use smaller models (gpt-4o-mini vs gpt-4) for 60% cost savings
 5. **Rate Limiting**: Prevent cost overruns with request caps
-
-## Section 10: Quality Assurance and Best Practices
-
-### 10.1: Software Quality Metrics
-
-This project demonstrates compliance with ISO/IEC 25010 software quality standards:
-
-- **Functionality**: 85% test coverage with comprehensive unit tests
-- **Reliability**: Robust error handling for edge cases (empty retrievals, JSON parsing failures)
-- **Usability**: Clear modular design with configurable parameters
-- **Efficiency**: Optimized retrieval strategies (basic vs reranking)
-- **Maintainability**: Clean separation of concerns with rag_config.py, rag_runner.py
-- **Portability**: Works across platforms with Python 3.10+
-
-### 8.2: RAG System Design - Dos and Don'ts
-
-This table summarizes best practices learned from experiments, with the cost of deviating from recommendations:
-
-| Decision | ✅ DO | ❌ DON'T | 💰 Price to Deviate |
-|----------|-------|----------|---------------------|
-| **Model Size** | Use 3B (llama3.2) for balanced performance | Use 8B for all queries blindly | +107% latency (2x slower) without quality requirements |
-| **Chunk Size** | Use 1200 for balanced context/speed | Use 300 for complex questions | -1 to -2 quality points (context fragmentation) |
-| **Chunk Size** | Stay under ~2500 characters | Use chunks >3000 characters | Complete failure (embedding service 500 error) |
-| **Retrieval k** | Use k=3 for baseline, k=5+ for complex queries | Use k=1 or k=2 (too few) | "Missed Top Rank" failures, incomplete answers |
-| **Vector Store** | Use in-memory for experiments/research | Persist to disk for single-run experiments | Wasted disk space (~50-100 MB), slower first run (+2-5s) |
-| **Vector Store** | Persist to disk for production apps | Re-index on every restart in production | 13.7s startup delay per restart (vs 0.5s load) |
-| **Embeddings** | Use nomic-embed-text for local/offline | Use OpenAI embeddings without need | API costs (~$0.02 per 1M tokens) + network dependency |
-| **LLM Provider** | Use local Ollama for privacy/cost-sensitive | Use cloud without considering privacy | Data sent to external servers, ongoing API costs |
-| **LLM Provider** | Use cloud OpenAI for speed-critical apps | Use local for latency-sensitive production | 50-80% slower responses (11s vs 2-5s) |
-| **Retrieval Strategy** | Use basic retrieval for simple queries | Use reranking for everything | Unnecessary complexity, minimal quality gain for simple queries |
-| **Retrieval Strategy** | Use reranking for complex multi-hop queries | Use basic retrieval with low k for complex queries | "Missed Top Rank" failures, incomplete context |
-| **Contextual Chunks** | Use for production with 10,000+ chunks | Use for small datasets (<500 chunks) | 28x indexing overhead (476s vs 17s) without quality justification |
-| **Contextual Chunks** | Use basic RAG for fast iteration | Add context without measuring benefit | Wasted compute (175 extra LLM calls) and time |
-| **Error Handling** | Validate chunk size before embedding | Ignore embedding service limits | Runtime failures, wasted indexing time |
-| **Testing** | Maintain 70%+ test coverage | Skip tests for "simple" code | Regression bugs, production failures |
-| **Configuration** | Use dataclasses for config management | Hardcode parameters in multiple files | Difficult to experiment, inconsistent configurations |
-| **Experimentation** | Change ONE variable at a time | Change multiple variables simultaneously | Cannot isolate cause of performance changes |
-| **Metrics** | Measure indexing AND response time | Only measure response time | Hidden performance bottlenecks during scaling |
-| **Documentation** | Document failures (like 3000 chunk error) | Hide failed experiments | Repeated mistakes, wasted time debugging known issues |
-
-**Key Principles:**
-
-1. **Measure First, Optimize Later**: Don't add complexity (reranking, contextual chunks) without measuring baseline performance
-2. **One Variable at a Time**: Isolate changes to understand impact (Section 4 methodology)
-3. **Know Your Limits**: Embedding service has hard limits (~3000 chars); test boundaries early
-4. **Balance Trade-offs**: Speed vs quality, cost vs privacy, complexity vs maintainability
-5. **Production ≠ Research**: In-memory works for experiments; persistence essential for production
-6. **Document Everything**: Failed experiments teach as much as successful ones
