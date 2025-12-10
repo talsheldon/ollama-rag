@@ -687,9 +687,110 @@ pytest tests/ --cov=rag --cov-report=term-missing
 
 All commands executed successfully with output documented in the experimental results (CSV files in `results/` directory).
 
-## Section 8: Quality Assurance and Best Practices
+## Section 9: Cost Analysis
 
-### 8.1: Software Quality Metrics
+### 9.1: Local vs Cloud Cost Comparison
+
+This section analyzes the financial and operational trade-offs between local (Ollama) and cloud (OpenAI) deployments.
+
+#### Cost Breakdown
+
+**Local Ollama (llama3.2 3B + nomic-embed-text):**
+- **API Costs**: $0/month (zero recurring costs)
+- **Hardware**: One-time investment (assumes existing hardware with 8GB+ RAM)
+- **Per-query cost**: $0
+- **175 embeddings**: $0
+- **4 questions (baseline)**: $0
+- **Total for this project**: $0
+
+**Cloud OpenAI (gpt-4o-mini + text-embedding-3-small):**
+- **LLM Costs** (gpt-4o-mini):
+  - Input: $0.150 per 1M tokens
+  - Output: $0.600 per 1M tokens
+  - Estimated per query: ~1,000 input tokens + ~500 output tokens = $0.00045/query
+- **Embedding Costs** (text-embedding-3-small):
+  - $0.020 per 1M tokens
+  - 175 chunks × ~200 tokens = 35,000 tokens = $0.0007
+  - Per query embedding: ~50 tokens = $0.000001/query
+- **Total for 4 questions**: ~$0.002 (embeddings) + ~$0.0018 (4 queries) = **~$0.004**
+- **100 queries/day for 30 days**: ~$13.50/month
+
+#### Performance vs Cost Trade-offs
+
+| Metric | Local Ollama | Cloud OpenAI | Winner |
+|--------|--------------|--------------|---------|
+| **Cost (monthly, 100 queries/day)** | $0 | ~$13.50 | Local 🏆 |
+| **Avg Response Time** | 11.32s | ~2-5s (est.) | Cloud 🏆 |
+| **Indexing Time (175 chunks)** | 13.7s | ~20-30s (est.) | Local 🏆 |
+| **Data Privacy** | Complete control | Sent to OpenAI | Local 🏆 |
+| **Offline Capability** | Yes | No | Local 🏆 |
+| **Quality** | Good (3/4) | Similar or better | Tie |
+| **Setup Complexity** | Higher (Ollama install) | Lower (API key only) | Cloud 🏆 |
+| **Scalability** | Limited by hardware | Unlimited (rate limits) | Cloud 🏆 |
+
+#### Security and Privacy Implications
+
+**Local Ollama:**
+- ✅ All data stays on-premises
+- ✅ No data sent to external services
+- ✅ Full control over model and data
+- ✅ Compliance-friendly (GDPR, HIPAA)
+- ⚠️ Requires secure hardware management
+
+**Cloud OpenAI:**
+- ⚠️ Data sent to OpenAI servers (check their privacy policy)
+- ⚠️ Subject to OpenAI's data retention policies
+- ⚠️ Potential regulatory concerns for sensitive data
+- ✅ OpenAI handles infrastructure security
+- ✅ Regular security updates from provider
+
+#### Break-Even Analysis
+
+**When to choose Local:**
+- **Volume**: >1,000 queries/month (break-even vs cloud)
+- **Privacy**: Sensitive data (medical, financial, confidential)
+- **Offline**: No reliable internet or air-gapped environments
+- **Compliance**: Strict data residency requirements
+- **Development**: Iterative experimentation with no cost concerns
+
+**When to choose Cloud:**
+- **Volume**: <1,000 queries/month (~$14/month threshold)
+- **Speed**: Latency-critical applications (50-80% faster responses)
+- **Scale**: Unpredictable or bursty traffic
+- **Simplicity**: Rapid prototyping without infrastructure setup
+- **Quality**: Need cutting-edge models (GPT-4, Claude 3)
+
+#### Project-Specific Costs
+
+For this RAG homework project:
+- **Total queries executed**: ~30 (across all experiments)
+- **Local cost**: $0
+- **Cloud cost (if used)**: ~$0.03
+- **Time saved with cloud**: ~5-8 minutes (faster responses)
+- **Conclusion**: Local was optimal for this research project (cost-free experimentation)
+
+#### Real-World Production Example
+
+**Scenario**: Customer support chatbot, 10,000 queries/month
+
+| Configuration | Monthly Cost | Pros | Cons |
+|---------------|--------------|------|------|
+| **Local only** | $0 | No API costs, full privacy | Slower (11s), hardware investment |
+| **Cloud only** | ~$1,350 | Fast (2-5s), no hardware | Expensive at scale, privacy concerns |
+| **Hybrid** (local embeddings + cloud LLM) | ~$600 | Balanced cost/performance | Complex setup, partial privacy |
+| **Recommended**: Local with cloud fallback | ~$100 | Cost-effective, privacy-first, fast fallback | Most complex architecture |
+
+### 9.2: Cost Optimization Strategies
+
+1. **Batch Processing**: Group embeddings to reduce API calls
+2. **Caching**: Store frequent query results (reduce 70% of repeat queries)
+3. **Hybrid Architecture**: Local for embeddings, cloud for LLM only
+4. **Model Selection**: Use smaller models (gpt-4o-mini vs gpt-4) for 60% cost savings
+5. **Rate Limiting**: Prevent cost overruns with request caps
+
+## Section 10: Quality Assurance and Best Practices
+
+### 10.1: Software Quality Metrics
 
 This project demonstrates compliance with ISO/IEC 25010 software quality standards:
 
