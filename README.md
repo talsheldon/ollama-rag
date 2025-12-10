@@ -156,6 +156,20 @@ jupyter notebook analysis/
 
 ### Section 3: Baseline Results
 
+**RAG Pipeline Architecture:**
+```
+┌─────────┐     ┌──────────┐     ┌────────┐     ┌────────────┐     ┌───────────┐
+│Question │ --> │ Document │ --> │ Chunks │ --> │ Embeddings │ --> │ Vector DB │
+└─────────┘     └──────────┘     └────────┘     └────────────┘     └───────────┘
+                (PDF Load)      (Split Text)   (nomic-embed)       (Chroma)
+                                1200 chars                          175 chunks
+
+                ┌────────┐     ┌───────────┐     ┌─────┐     ┌────────┐
+                │ Answer │ <-- │    LLM    │ <-- │ k=3 │ <-- │ Vector │
+                └────────┘     └───────────┘     └─────┘     │ Search │
+                               (llama3.2 3B)    (Retrieve)   └────────┘
+```
+
 The baseline RAG system was successfully implemented with:
 - **Model**: llama3.2 (3B parameters)
 - **Embedding**: nomic-embed-text
@@ -344,6 +358,36 @@ In-memory storage (`persist_directory=None`) is the correct architectural choice
 
 ### Section 5: Local Ollama vs Cloud OpenAI
 
+**Architecture Comparison:**
+```
+5.1 - Local (Baseline):
+┌──────────┐     ┌─────────────────┐     ┌──────────┐
+│ Question │ --> │ Local Ollama    │ --> │  Answer  │
+└──────────┘     │ llama3.2 (LLM)  │     └──────────┘
+                 │ nomic-embed     │
+                 │ (Embeddings)    │
+                 └─────────────────┘
+                 Cost: $0, Privacy: ✓, Offline: ✓
+
+5.2 - Hybrid:
+┌──────────┐     ┌─────────────────┐     ┌──────────┐
+│ Question │ --> │ Cloud: gpt-4o   │ --> │  Answer  │
+└──────────┘     │ (LLM via API)   │     └──────────┘
+                 │ Local: nomic    │
+                 │ (Embeddings)    │
+                 └─────────────────┘
+                 Cost: $, Privacy: ~, Offline: ✗
+
+5.3 - Full Cloud:
+┌──────────┐     ┌─────────────────┐     ┌──────────┐
+│ Question │ --> │ Cloud: gpt-4o   │ --> │  Answer  │
+└──────────┘     │ (LLM via API)   │     └──────────┘
+                 │ Cloud: text-    │
+                 │ embedding-3     │
+                 └─────────────────┘
+                 Cost: $$, Privacy: ✗, Offline: ✗
+```
+
 **Experiments:**
 - **5.1 - Baseline (Local)**: Ollama LLM (llama3.2) + Ollama embeddings (nomic-embed-text)
 - **5.2 - Hybrid**: OpenAI LLM (gpt-4o-mini) + Ollama embeddings (nomic-embed-text)
@@ -508,6 +552,25 @@ Both approaches used k=3 retrieval with the same baseline configuration.
 - Consider hybrid: Use contextual retrieval only for critical document sections, basic for the rest
 
 #### 6.2: Basic Retrieval vs Reranking
+
+**Retrieval Strategy Comparison:**
+```
+Basic Retrieval (k=5):
+┌─────────┐     ┌───────────┐     ┌──────────┐     ┌─────┐     ┌────────┐
+│ Query   │ --> │   Multi   │ --> │  Vector  │ --> │ k=5 │ --> │  LLM   │ --> Answer
+└─────────┘     │  Query    │     │  Search  │     │ Docs│     │        │
+                │Retriever  │     └──────────┘     └─────┘     └────────┘
+                └───────────┘
+                (5 variations)                   (All 5 → LLM)
+
+Reranking (k=10 → top 3):
+┌─────────┐     ┌───────────┐     ┌──────────┐     ┌─────────┐     ┌─────┐     ┌─────┐
+│ Query   │ --> │  Vector   │ --> │ Retrieve │ --> │ Rerank  │ --> │ k=3 │ --> │ LLM │ --> Answer
+└─────────┘     │  Search   │     │  k=10    │     │  by     │     │ Top │     └─────┘
+                └───────────┘     │  Docs    │     │Relevance│     └─────┘
+                                  └──────────┘     └─────────┘
+                                                   (LLM ranks)   (Best 3 → LLM)
+```
 
 **Experiments:**
 - **Basic Retrieval**: MultiQueryRetriever with k=5 → direct to LLM
